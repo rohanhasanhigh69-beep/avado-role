@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Hind Siliguri', system-ui, -apple-system, sans-serif;
+    --font-serif: 'Noto Serif Bengali', Georgia, serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #F8F9FA;
+    color: #111827;
+  }
+}
+
+.font-editorial {
+  font-family: var(--font-serif);
+}
+
+.font-tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Smooth subtle scrollbars for dialogue stage */
+.studio-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.studio-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.studio-scroll::-webkit-scrollbar-thumb {
+  background: rgba(17, 24, 39, 0.14);
+  border-radius: 9999px;
+}
+
+.studio-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(17, 24, 39, 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
