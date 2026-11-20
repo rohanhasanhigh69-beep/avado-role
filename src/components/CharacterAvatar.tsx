@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface CharacterAvatarProps {
   src: string;
@@ -16,6 +16,10 @@ export function CharacterAvatar({
   accentHex = '#2563EB',
 }: CharacterAvatarProps) {
   const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
 
   if (!src || hasError) {
     const initial = name.trim().slice(0, 1) || 'ক';

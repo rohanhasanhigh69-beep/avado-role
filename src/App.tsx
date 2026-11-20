@@ -12,6 +12,7 @@ import { speechInput } from './engine/speechInputEngine';
 import { voicePlayer } from './engine/voiceEngine';
 import {
   ActiveTab,
+  CharacterMood,
   ChatMessage,
   CustomEmotionDefinition,
   LexiconEntry,
@@ -87,13 +88,18 @@ function hasSavedSession(): boolean {
   }
 }
 
-function createGreetingMessage(character: RoleplayCharacter): ChatMessage {
+function createGreetingMessage(
+  character: RoleplayCharacter,
+  moodOverride?: CharacterMood
+): ChatMessage {
   return {
     id: `msg-${character.id}-greeting`,
     sender: 'character',
     text: character.greeting,
     action: character.greetingAction,
-    mood: character.relation === 'mother' || character.relation === 'father' ? 'স্নেহশীল' : 'শান্ত',
+    mood:
+      moodOverride ||
+      (character.relation === 'mother' || character.relation === 'father' ? 'স্নেহশীল' : 'শান্ত'),
     timestamp: Date.now(),
     voiceGender: character.gender,
     characterId: character.id,
@@ -428,7 +434,7 @@ export default function App() {
   const launchSetupCharacter = useCallback(
     (draft: RoleplaySetupDraft, scenarioText?: string) => {
       const { character, initialMemory } = buildCharacterFromSetup(draft, scenarioText);
-      const greetingMsg = createGreetingMessage(character);
+      const greetingMsg = createGreetingMessage(character, initialMemory.currentMood);
 
       setCustomCharacters((prev) => [character, ...prev]);
       setActiveCharacterId(character.id);
@@ -451,6 +457,7 @@ export default function App() {
       if (voiceSettings.autoSpeak || liveTalkOnRef.current) {
         voicePlayer.speak(greetingMsg.text, character.gender, voiceSettings, {
           mood: greetingMsg.mood,
+          customEmotions,
           onStart: (engineUsed) => {
             setSpeakingMessageId(greetingMsg.id);
             setActiveVoiceEngineLabel(
@@ -467,7 +474,7 @@ export default function App() {
         });
       }
     },
-    [voiceSettings, beginListeningSession]
+    [voiceSettings, customEmotions, beginListeningSession]
   );
 
   const handleSendSetupMessage = useCallback(
@@ -700,13 +707,35 @@ export default function App() {
   };
 
   const handleAddLexiconEntry = (entry: LexiconEntry) => {
-    setUserLexicon((prev) => [entry, ...prev]);
+    setUserLexicon((prev) => {
+      const key = `${entry.root.trim().toLowerCase()}::${String(entry.emotion).toLowerCase()}`;
+      const exists = prev.some(
+        (w) =>
+          w.id === entry.id ||
+          `${w.root.trim().toLowerCase()}::${String(w.emotion).toLowerCase()}` === key
+      );
+      if (exists) return prev;
+      return [entry, ...prev];
+    });
   };
 
   const handleAddLexiconBatch = (entries: LexiconEntry[]) => {
-    if (entries.length > 0) {
-      setUserLexicon((prev) => [...entries, ...prev]);
-    }
+    if (entries.length === 0) return;
+    setUserLexicon((prev) => {
+      const seenIds = new Set(prev.map((w) => w.id));
+      const seenKeys = new Set(
+        prev.map((w) => `${w.root.trim().toLowerCase()}::${String(w.emotion).toLowerCase()}`)
+      );
+      const fresh: LexiconEntry[] = [];
+      for (const w of entries) {
+        const key = `${w.root.trim().toLowerCase()}::${String(w.emotion).toLowerCase()}`;
+        if (seenIds.has(w.id) || seenKeys.has(key)) continue;
+        seenIds.add(w.id);
+        seenKeys.add(key);
+        fresh.push(w);
+      }
+      return fresh.length > 0 ? [...fresh, ...prev] : prev;
+    });
   };
 
   const handleRemoveLexiconEntry = (id: string) => {
@@ -727,7 +756,13 @@ export default function App() {
     if (emotions.length === 0) return;
     setCustomEmotions((prev) => {
       const existingSignals = new Set(prev.map((e) => e.signal.toLowerCase()));
-      const fresh = emotions.filter((e) => !existingSignals.has(e.signal.toLowerCase()));
+      const fresh: CustomEmotionDefinition[] = [];
+      for (const e of emotions) {
+        const sigKey = e.signal.toLowerCase();
+        if (existingSignals.has(sigKey)) continue;
+        existingSignals.add(sigKey);
+        fresh.push(e);
+      }
       if (fresh.length === 0) return prev;
       return [...fresh, ...prev];
     });
@@ -742,32 +777,112 @@ export default function App() {
     words: LexiconEntry[],
     scenarios: TrainedScenario[] = [],
     characters: RoleplayCharacter[] = [],
-    importedEmotions: CustomEmotionDefinition[] = []
+    importedEmotions: CustomEmotionDefinition[] = [],
+    importedPatterns: MLSelfLearnedPattern[] = []
   ) => {
-    const nextConversations = items.length > 0 ? [...items, ...trainedConversations] : trainedConversations;
-    const nextLexicon = words.length > 0 ? [...words, ...userLexicon] : userLexicon;
-    const nextScenarios = scenarios.length > 0 ? [...scenarios, ...trainedScenarios] : trainedScenarios;
+    const convSeenIds = new Set(trainedConversations.map((c) => c.id));
+    const convSeenKeys = new Set(
+      trainedConversations.map(
+        (c) => `${c.prompt.trim().toLowerCase()}::${c.response.trim().toLowerCase()}::${c.relation}`
+      )
+    );
+    const freshConversations: TrainedConversationItem[] = [];
+    for (const c of items) {
+      const key = `${c.prompt.trim().toLowerCase()}::${c.response.trim().toLowerCase()}::${c.relation}`;
+      if (convSeenIds.has(c.id) || convSeenKeys.has(key)) continue;
+      convSeenIds.add(c.id);
+      convSeenKeys.add(key);
+      freshConversations.push(c);
+    }
+    const nextConversations =
+      freshConversations.length > 0
+        ? [...freshConversations, ...trainedConversations]
+        : trainedConversations;
+
+    const lexSeenIds = new Set(userLexicon.map((w) => w.id));
+    const lexSeenKeys = new Set(
+      userLexicon.map((w) => `${w.root.trim().toLowerCase()}::${String(w.emotion).toLowerCase()}`)
+    );
+    const freshLexicon: LexiconEntry[] = [];
+    for (const w of words) {
+      const key = `${w.root.trim().toLowerCase()}::${String(w.emotion).toLowerCase()}`;
+      if (lexSeenIds.has(w.id) || lexSeenKeys.has(key)) continue;
+      lexSeenIds.add(w.id);
+      lexSeenKeys.add(key);
+      freshLexicon.push(w);
+    }
+    const nextLexicon = freshLexicon.length > 0 ? [...freshLexicon, ...userLexicon] : userLexicon;
+
+    const scenSeenIds = new Set(trainedScenarios.map((s) => s.id));
+    const scenSeenKeys = new Set(
+      trainedScenarios.map((s) => `${s.title.trim().toLowerCase()}::${s.relation}`)
+    );
+    const freshScenarios: TrainedScenario[] = [];
+    for (const s of scenarios) {
+      const key = `${s.title.trim().toLowerCase()}::${s.relation}`;
+      if (scenSeenIds.has(s.id) || scenSeenKeys.has(key)) continue;
+      scenSeenIds.add(s.id);
+      scenSeenKeys.add(key);
+      freshScenarios.push(s);
+    }
+    const nextScenarios =
+      freshScenarios.length > 0 ? [...freshScenarios, ...trainedScenarios] : trainedScenarios;
 
     let nextEmotions = customEmotions;
     if (importedEmotions.length > 0) {
       const existingSignals = new Set(customEmotions.map((e) => e.signal.toLowerCase()));
-      const freshEmotions = importedEmotions.filter(
-        (e) => !existingSignals.has(e.signal.toLowerCase())
-      );
+      const freshEmotions: CustomEmotionDefinition[] = [];
+      for (const e of importedEmotions) {
+        const sigKey = e.signal.toLowerCase();
+        if (existingSignals.has(sigKey)) continue;
+        existingSignals.add(sigKey);
+        freshEmotions.push(e);
+      }
       if (freshEmotions.length > 0) {
         nextEmotions = [...freshEmotions, ...customEmotions];
         setCustomEmotions(nextEmotions);
       }
     }
 
-    if (items.length > 0) {
+    const patSeenIds = new Set(selfLearnedPatterns.map((p) => p.id));
+    const patSeenKeys = new Set(
+      selfLearnedPatterns.map(
+        (p) => `${p.prompt.trim().toLowerCase()}::${p.response.trim().toLowerCase()}`
+      )
+    );
+    const freshPatterns: MLSelfLearnedPattern[] = [];
+    for (const p of importedPatterns) {
+      const key = `${p.prompt.trim().toLowerCase()}::${p.response.trim().toLowerCase()}`;
+      if (patSeenIds.has(p.id) || patSeenKeys.has(key)) continue;
+      patSeenIds.add(p.id);
+      patSeenKeys.add(key);
+      freshPatterns.push(p);
+    }
+    const mergedPatterns =
+      freshPatterns.length > 0 ? [...freshPatterns, ...selfLearnedPatterns] : selfLearnedPatterns;
+
+    if (freshConversations.length > 0) {
       setTrainedConversations(nextConversations);
     }
-    if (scenarios.length > 0) {
+    if (freshScenarios.length > 0) {
       setTrainedScenarios(nextScenarios);
     }
     if (characters.length > 0) {
-      setCustomCharacters((prev) => [...characters, ...prev]);
+      setCustomCharacters((prev) => {
+        const seenIds = new Set(prev.map((c) => c.id));
+        const seenKeys = new Set(
+          prev.map((c) => `${c.name.trim().toLowerCase()}::${c.relation || ''}`)
+        );
+        const freshChars: RoleplayCharacter[] = [];
+        for (const ch of characters) {
+          const key = `${ch.name.trim().toLowerCase()}::${ch.relation || ''}`;
+          if (seenIds.has(ch.id) || seenKeys.has(key)) continue;
+          seenIds.add(ch.id);
+          seenKeys.add(key);
+          freshChars.push(ch);
+        }
+        return freshChars.length > 0 ? [...freshChars, ...prev] : prev;
+      });
     }
 
     // Autonomous ML Self-Learning: immediately synthesize patterns & discover vocabulary
@@ -775,15 +890,15 @@ export default function App() {
       trainedConversations: nextConversations,
       trainedScenarios: nextScenarios,
       feedbackSamples: mlFeedbackSamples,
-      existingPatterns: selfLearnedPatterns,
+      existingPatterns: mergedPatterns,
       existingLexicon: nextLexicon,
       customEmotions: nextEmotions,
     });
-    if (newPatterns.length > 0) {
-      setSelfLearnedPatterns((prev) => [...newPatterns, ...prev]);
+    if (freshPatterns.length > 0 || newPatterns.length > 0) {
+      setSelfLearnedPatterns([...newPatterns, ...mergedPatterns]);
     }
-    if (words.length > 0 || newLexiconWords.length > 0) {
-      setUserLexicon([...newLexiconWords, ...nextLexicon]);
+    if (freshLexicon.length > 0 || newLexiconWords.length > 0) {
+      setUserLexicon([...nextLexicon, ...newLexiconWords]);
     }
   };
 
@@ -809,6 +924,7 @@ export default function App() {
           : undefined;
       const sample: MLFeedbackSample = {
         id: `fb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        messageId: charMsg.id,
         input: precedingUserMsg?.text || charMsg.matchedTopic || charMsg.text.slice(0, 40),
         replyKey: charMsg.replyKey || `msg:${charMsg.id}`,
         replyText: charMsg.text,
@@ -817,7 +933,8 @@ export default function App() {
         reward,
         timestamp: Date.now(),
       };
-      const nextSamples = [sample, ...mlFeedbackSamples.slice(0, 199)];
+      const withoutPrevForMsg = mlFeedbackSamples.filter((fb) => fb.messageId !== charMsg.id);
+      const nextSamples = [sample, ...withoutPrevForMsg].slice(0, 200);
       setMlFeedbackSamples(nextSamples);
 
       if (reward > 0) {
@@ -833,7 +950,7 @@ export default function App() {
           setSelfLearnedPatterns((prev) => [...newPatterns, ...prev]);
         }
         if (newLexiconWords.length > 0) {
-          setUserLexicon((prev) => [...newLexiconWords, ...prev]);
+          setUserLexicon((prev) => [...prev, ...newLexiconWords]);
         }
       }
     },
@@ -861,7 +978,7 @@ export default function App() {
       setSelfLearnedPatterns((prev) => [...newPatterns, ...prev]);
     }
     if (newLexiconWords.length > 0) {
-      setUserLexicon((prev) => [...newLexiconWords, ...prev]);
+      setUserLexicon((prev) => [...prev, ...newLexiconWords]);
     }
     return {
       addedPatterns: newPatterns.length,
@@ -880,7 +997,7 @@ export default function App() {
     handleStopLiveTalk();
     handleStopSpeaking();
     const { character, initialMemory } = buildCharacterFromTrainedScenario(scenario);
-    const greetingMsg = createGreetingMessage(character);
+    const greetingMsg = createGreetingMessage(character, initialMemory.currentMood);
 
     setCustomCharacters((prev) => [character, ...prev]);
     setActiveCharacterId(character.id);
@@ -902,6 +1019,7 @@ export default function App() {
     if (voiceSettings.autoSpeak) {
       voicePlayer.speak(greetingMsg.text, character.gender, voiceSettings, {
         mood: greetingMsg.mood,
+        customEmotions,
         onStart: (engineUsed) => {
           setSpeakingMessageId(greetingMsg.id);
           setActiveVoiceEngineLabel(

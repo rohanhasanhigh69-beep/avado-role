@@ -1,4 +1,4 @@
-﻿import { RELATIONSHIP_KNOWLEDGE } from '../data/relationshipKnowledge';
+import { RELATIONSHIP_KNOWLEDGE } from '../data/relationshipKnowledge';
 import { SHARED_BENGALI_TOPICS } from '../data/sharedBengaliKnowledge';
 import { DATASET_NATURAL_PAIRS } from '../data/trainedNaturalDataset';
 import {
@@ -11,7 +11,14 @@ import {
 } from './localIntelligence';
 import { LocalMLModel } from './localML';
 import {
+  composeContextualContinuityReply,
+  composeDynamicContextualReply,
+  composeMetaFeedbackReply,
+  extractQuestionFromReply,
+} from './contextualComposer';
+import {
   CharacterMood,
+  ConversationTurnSnapshot,
   CustomEmotionDefinition,
   DialogueTopic,
   DialogueVariant,
@@ -23,6 +30,7 @@ import {
   RoleplayCharacter,
   RoleplaySetupDraft,
   ScenarioArc,
+  SentenceAnalysis,
   SessionMemory,
   TrainedConversationItem,
   TrainedScenario,
@@ -54,11 +62,11 @@ export const normalizeBengaliInput = normalizeBengaliText;
 
 export function formatBengaliLocation(setting: string): string {
   const trimmed = setting.trim();
-  if (!trimmed) return 'à¦à¦–à¦¾à¦¨à§‡';
-  if (/(?:à§Ÿ|à¦¯à¦¼|à¦¤à§‡|à§Ÿà§‡|à¦¯à¦¼à§‡|à§‡|à¦°|à¦|\))$/.test(trimmed)) {
+  if (!trimmed) return 'এখানে';
+  if (/(?:য়|য়|তে|য়ে|য়ে|ে|র|এ|\))$/.test(trimmed)) {
     return trimmed;
   }
-  return `${trimmed}-à¦`;
+  return `${trimmed}-এ`;
 }
 
 export function inferCharacterRelation(
@@ -71,25 +79,25 @@ export function inferCharacterRelation(
     `${character.role} ${character.name} ${character.greeting} ${character.personalitySummary}`
   );
 
-  if (/(?:^|\s)(à¦†à¦®à§à¦®à§|à¦†à¦®à§à¦®à¦¾|à¦®à¦¾ à¦—à§‹|à¦®à¦¾à§Ÿà§‡à¦°)(?:\s|$)/.test(normalizedInput)) {
+  if (/(?:^|\s)(আম্মু|আম্মা|মা গো|মায়ের)(?:\s|$)/.test(normalizedInput)) {
     return 'mother';
   }
-  if (/(?:^|\s)(à¦†à¦¬à§à¦¬à§|à¦†à¦¬à§à¦¬à¦¾|à¦¬à¦¾à¦¬à¦¾)(?:\s|$)/.test(normalizedInput)) {
+  if (/(?:^|\s)(আব্বু|আব্বা|বাবা)(?:\s|$)/.test(normalizedInput)) {
     return 'father';
   }
-  if (/(?:^|\s)(à¦¬à¦‰|à¦¸à§à¦¤à§à¦°à§€|à¦œà¦¾à¦®à¦¾à¦‡|à¦¸à§à¦¬à¦¾à¦®à§€|à¦—à¦¿à¦¨à§à¦¨à¦¿|à¦¬à§‡à¦—à¦®|à¦“à¦—à§‹)(?:\s|$)/.test(normalizedInput)) {
+  if (/(?:^|\s)(বউ|স্ত্রী|জামাই|স্বামী|গিন্নি|বেগম|ওগো)(?:\s|$)/.test(normalizedInput)) {
     return 'spouse';
   }
-  if (/(?:^|\s)(à¦—à¦¾à¦°à§à¦²à¦«à§à¦°à§‡à¦¨à§à¦¡|à¦¬à§Ÿà¦«à§à¦°à§‡à¦¨à§à¦¡|à¦ªà§à¦°à§‡à¦®à¦¿à¦•à¦¾|à¦ªà§à¦°à§‡à¦®à¦¿à¦•|à¦¬à§‡à¦¬à¦¿|à¦œà¦¾à¦¨|gf|bf)(?:\s|$)/.test(normalizedInput)) {
+  if (/(?:^|\s)(গার্লফ্রেন্ড|বয়ফ্রেন্ড|প্রেমিকা|প্রেমিক|বেবি|জান|gf|bf)(?:\s|$)/.test(normalizedInput)) {
     return 'romantic';
   }
-  if (/(?:^|\s)(à¦­à¦¾à¦‡à§Ÿà¦¾|à¦­à¦¾à¦‡à¦¯à¦¼à¦¾|à¦†à¦ªà§|à¦¬à§‹à¦¨)(?:\s|$)/.test(normalizedInput)) {
+  if (/(?:^|\s)(ভাইয়া|ভাইয়া|আপু|বোন)(?:\s|$)/.test(normalizedInput)) {
     return 'sibling';
   }
-  if (/(?:^|\s)(à¦¸à§à¦¯à¦¾à¦°|à¦®à§à¦¯à¦¾à¦®|à¦—à§à¦°à§|à¦‰à¦¸à§à¦¤à¦¾à¦¦)(?:\s|$)/.test(normalizedInput)) {
+  if (/(?:^|\s)(স্যার|ম্যাম|গুরু|উস্তাদ)(?:\s|$)/.test(normalizedInput)) {
     return 'mentor';
   }
-  if (/(?:^|\s)(à¦¦à§‹à¦¸à§à¦¤|à¦®à¦¾à¦®à¦¾|à¦¬à§à¦°à§‹)(?:\s|$)/.test(normalizedInput)) {
+  if (/(?:^|\s)(দোস্ত|মামা|ব্রো)(?:\s|$)/.test(normalizedInput)) {
     return 'friend';
   }
 
@@ -101,25 +109,25 @@ export function inferCharacterRelation(
     return memory.detectedRelation;
   }
 
-  if (/(à¦†à¦®à§à¦®à§|à¦†à¦®à§à¦®à¦¾|à¦®à¦¾|à¦œà¦¨à¦¨à§€|mother|mom)/.test(metaText)) {
+  if (/(আম্মু|আম্মা|মা|জননী|mother|mom)/.test(metaText)) {
     return 'mother';
   }
-  if (/(à¦†à¦¬à§à¦¬à§|à¦†à¦¬à§à¦¬à¦¾|à¦¬à¦¾à¦¬à¦¾|à¦ªà¦¿à¦¤à¦¾|father|dad)/.test(metaText)) {
+  if (/(আব্বু|আব্বা|বাবা|পিতা|father|dad)/.test(metaText)) {
     return 'father';
   }
-  if (/(à¦¬à¦‰|à¦¸à§à¦¤à§à¦°à§€|à¦œà¦¾à¦®à¦¾à¦‡|à¦¸à§à¦¬à¦¾à¦®à§€|à¦—à¦¿à¦¨à§à¦¨à¦¿|à¦¦à¦¾à¦®à§à¦ªà¦¤à§à¦¯|à¦¸à¦‚à¦¸à¦¾à¦°|wife|husband)/.test(metaText)) {
+  if (/(বউ|স্ত্রী|জামাই|স্বামী|গিন্নি|দাম্পত্য|সংসার|wife|husband)/.test(metaText)) {
     return 'spouse';
   }
-  if (/(à¦—à¦¾à¦°à§à¦²à¦«à§à¦°à§‡à¦¨à§à¦¡|à¦¬à§Ÿà¦«à§à¦°à§‡à¦¨à§à¦¡|à¦ªà§à¦°à§‡à¦®à¦¿à¦•à¦¾|à¦ªà§à¦°à§‡à¦®à¦¿à¦•|à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾à¦° à¦®à¦¾à¦¨à§à¦·|gf|bf|girlfriend|boyfriend)/.test(metaText)) {
+  if (/(গার্লফ্রেন্ড|বয়ফ্রেন্ড|প্রেমিকা|প্রেমিক|ভালোবাসার মানুষ|gf|bf|girlfriend|boyfriend)/.test(metaText)) {
     return 'romantic';
   }
-  if (/(à¦­à¦¾à¦‡à§Ÿà¦¾|à¦­à¦¾à¦‡à¦¯à¦¼à¦¾|à¦†à¦ªà§|à¦¬à§œ à¦­à¦¾à¦‡|à¦¬à§œ à¦¬à§‹à¦¨|sibling|brother|sister)/.test(metaText)) {
+  if (/(ভাইয়া|ভাইয়া|আপু|বড় ভাই|বড় বোন|sibling|brother|sister)/.test(metaText)) {
     return 'sibling';
   }
-  if (/(à¦¶à¦¿à¦•à§à¦·à¦•|à¦…à¦§à§à¦¯à¦¾à¦ªà¦•|à¦—à§à¦°à§|à¦®à§‡à¦¨à§à¦Ÿà¦°|teacher|mentor)/.test(metaText)) {
+  if (/(শিক্ষক|অধ্যাপক|গুরু|মেন্টর|teacher|mentor)/.test(metaText)) {
     return 'mentor';
   }
-  if (/(à¦¬à¦¨à§à¦§à§|à¦¦à§‹à¦¸à§à¦¤|à¦†à¦¡à§à¦¡à¦¾|friend)/.test(metaText)) {
+  if (/(বন্ধু|দোস্ত|আড্ডা|friend)/.test(metaText)) {
     return 'friend';
   }
 
@@ -129,18 +137,18 @@ export function inferCharacterRelation(
 export function extractUserName(rawInput: string): string | undefined {
   const cleaned = rawInput.trim();
   const patterns: RegExp[] = [
-    /(?:à¦†à¦®à¦¾à¦°\s+à¦¨à¦¾à¦®|à¦†à¦®à¦¿\s+à¦¹à¦²à¦¾à¦®|à¦†à¦®à¦¾à¦•à§‡\s+à¦¡à¦¾à¦•à¦¤à§‡\s+à¦ªà¦¾à¦°à§‹)\s+([^\sà¥¤,!?]{2,20})/i,
+    /(?:আমার\s+নাম|আমি\s+হলাম|আমাকে\s+ডাকতে\s+পারো)\s+([^\s।,!?]{2,20})/i,
     /(?:amar\s+naam|amar\s+nam|my\s+name\s+is|i\s+am)\s+([a-zA-Z\u0980-\u09FF]{2,20})/i,
   ];
 
   const stopWords = new Set([
-    'à¦­à¦¾à¦²à§‹',
-    'à¦–à¦¾à¦°à¦¾à¦ª',
-    'à¦•à§€',
-    'à¦•à§‡à¦®à¦¨',
-    'à¦à¦•à¦œà¦¨',
-    'à¦¤à§‹à¦®à¦¾à¦°',
-    'à¦­à¦¾à¦²',
+    'ভালো',
+    'খারাপ',
+    'কী',
+    'কেমন',
+    'একজন',
+    'তোমার',
+    'ভাল',
     'valobashi',
     'fine',
     'good',
@@ -150,7 +158,7 @@ export function extractUserName(rawInput: string): string | undefined {
   for (const regex of patterns) {
     const match = cleaned.match(regex);
     if (match && match[1]) {
-      const candidate = match[1].replace(/[à¥¤,!?.]/g, '').trim();
+      const candidate = match[1].replace(/[।,!?.]/g, '').trim();
       if (candidate.length >= 2 && !stopWords.has(candidate.toLowerCase())) {
         return candidate;
       }
@@ -162,7 +170,7 @@ export function extractUserName(rawInput: string): string | undefined {
 function getDefaultAddressTerm(relation: PersonaRelation): string {
   const pack = RELATIONSHIP_KNOWLEDGE[relation];
   if (pack) return pack.defaultTerm;
-  return 'à¦¬à¦¨à§à¦§à§';
+  return 'বন্ধু';
 }
 
 function interpolateTemplate(
@@ -180,7 +188,7 @@ function interpolateTemplate(
     .replace(/\{charRole\}/g, character.role)
     .replace(/\{charSettingLoc\}/g, locativeSetting)
     .replace(/\{charSetting\}/g, character.setting)
-    .replace(/\s+([à¥¤,!?])/g, '$1');
+    .replace(/\s+([।,!?])/g, '$1');
 }
 
 function pickNonRepeatingVariant(
@@ -201,64 +209,154 @@ function pickNonRepeatingVariant(
   };
 }
 
+const WEAK_VOCATIVE_OR_TIME_TOKENS = new Set([
+  'আম্মু',
+  'আম্মা',
+  'মা',
+  'আব্বু',
+  'আব্বা',
+  'বাবা',
+  'দোস্ত',
+  'মামা',
+  'ব্রো',
+  'ভাই',
+  'ভাইয়া',
+  'আপু',
+  'বউ',
+  'জামাই',
+  'ওগো',
+  'জান',
+  'সোনা',
+  'রাত',
+  'সকাল',
+  'বিকাল',
+  'আজ',
+  'আজকে',
+  'কাল',
+]);
+
 function scoreTopicMatch(
   normalizedInput: string,
   stemmedTokens: string[],
   topic: DialogueTopic,
-  priorityBonus: number
+  priorityBonus: number,
+  analysis?: SentenceAnalysis,
+  mlModel?: LocalMLModel
 ): number {
   const inputTokens = normalizedInput.split(/\s+/).filter(Boolean);
-  let score = 0;
+  let contentScore = 0;
+  let weakHits = 0;
+
   for (const kw of topic.keywords) {
     const normKw = normalizeBengaliText(kw);
     if (!normKw) continue;
+
+    if (!normKw.includes(' ') && WEAK_VOCATIVE_OR_TIME_TOKENS.has(normKw)) {
+      if (inputTokens.includes(normKw)) {
+        weakHits += 1;
+      }
+      continue;
+    }
+
     if (normalizedInput === normKw) {
-      score += 22;
+      contentScore += 24;
     } else if (!normKw.includes(' ') && normKw.length <= 3) {
       if (inputTokens.includes(normKw) || stemmedTokens.includes(normKw)) {
-        score += 10;
+        contentScore += 10;
       }
     } else if (normalizedInput.includes(normKw)) {
-      score += 8 + Math.min(normKw.length, 10);
+      contentScore += 10 + Math.min(normKw.length, 10);
     } else {
       const stemKw = stemBengaliWord(normKw);
       if (stemKw.length >= 3 && stemmedTokens.includes(stemKw)) {
-        score += 6;
+        contentScore += 8;
       }
     }
   }
-  if (score > 0) {
-    score += priorityBonus;
+
+  if (contentScore === 0) {
+    return 0;
   }
-  return score;
+
+  // Prevent negated inputs from accidentally firing positive opposing topics
+  if (analysis?.isNegated) {
+    if (topic.topic === 'user_wellbeing') {
+      return 0;
+    }
+    if (
+      topic.topic === 'tea_coffee_food' &&
+      /(?:খাবো না|খাই না|খাবার খাবো না)/.test(normalizedInput)
+    ) {
+      return 0;
+    }
+    if (
+      topic.topic === 'love_friendship' &&
+      /(?:ভালোবাসি না|বন্ধু না)/.test(normalizedInput)
+    ) {
+      return 0;
+    }
+  }
+
+  // Greeting topics should yield when user brings substantial real-world problem/subject tokens
+  const isGreetingTopic =
+    topic.topic === 'greeting' ||
+    topic.topic.endsWith('_greeting') ||
+    topic.topic === 'friend_greeting_adda' ||
+    topic.topic === 'romantic_greeting_miss' ||
+    topic.topic === 'spouse_greeting_home';
+
+  if (
+    isGreetingTopic &&
+    (analysis?.intent === 'complaint_vent' ||
+      (analysis?.subjectKeywords && analysis.subjectKeywords.length >= 2 && contentScore < 20))
+  ) {
+    contentScore = Math.max(0, contentScore - 14);
+    if (contentScore === 0) return 0;
+  }
+
+  let totalScore = contentScore + Math.min(weakHits, 2);
+
+  // Only award relation priority bonus and semantic ML similarity boost once a real topic cue matched
+  if (contentScore >= 8) {
+    totalScore += priorityBonus;
+    if (mlModel && topic.responses[0]?.text) {
+      const sim = mlModel.scoreSimilarity(
+        normalizedInput,
+        `${topic.labelBn} ${topic.responses[0].text}`
+      );
+      totalScore += Math.round(sim * 8);
+    }
+  }
+
+  return totalScore;
 }
 
 const TRAINED_STOP_STEMS = new Set([
-  'à¦•à§€',
-  'à¦•à¦¿',
-  'à¦•à§‡à¦¨',
-  'à¦•à§‹à¦¥à¦¾à§Ÿ',
-  'à¦•à§‹à¦¥à¦¾à¦¯à¦¼',
-  'à¦•à§‡à¦®à¦¨',
-  'à¦•à¦°à§‡',
-  'à¦•à¦°',
-  'à¦•à¦°à§‹',
-  'à¦•à¦°à¦›',
-  'à¦•à¦°à¦›à¦¿à¦¸',
-  'à¦†à¦œ',
-  'à¦†à¦œà¦•à§‡',
-  'à¦¥à§‡à¦•à§‡',
-  'à¦†à¦®à¦¾à¦°',
-  'à¦¤à§‹à¦®à¦¾à¦°',
-  'à¦¤à§‹à¦°',
-  'à¦¤à§à¦‡',
-  'à¦¤à§à¦®à¦¿',
-  'à¦†à¦®à¦¿',
-  'à¦†à¦®à§à¦®à§',
-  'à¦®à¦¾',
-  'à¦­à¦¾à¦‡',
-  'à¦¬à¦¨à§à¦§à§',
-  'à¦¦à§‹à¦¸à§à¦¤',
+  'কী',
+  'কি',
+  'কেন',
+  'কোথায়',
+  'কোথায়',
+  'কেমন',
+  'করে',
+  'কর',
+  'করো',
+  'করছ',
+  'করছিস',
+  'আজ',
+  'আজকে',
+  'থেকে',
+  'আমার',
+  'তোমার',
+  'তোর',
+  'তুই',
+  'তুমি',
+  'আমি',
+  'আম্মু',
+  'মা',
+  'ভাই',
+  'বন্ধু',
+  'দোস্ত',
 ]);
 
 function matchTrainedConversations(
@@ -370,82 +468,82 @@ export function buildCharacterFromSetup(
   rawScenarioText?: string
 ): { character: RoleplayCharacter; initialMemory: SessionMemory } {
   const relationLabels: Record<PersonaRelation, string> = {
-    mother: 'à¦¸à§à¦¨à§‡à¦¹à¦®à§Ÿà§€ à¦®à¦¾ (Mother)',
-    father: 'à¦¦à¦¾à§Ÿà¦¿à¦¤à§à¦¬à¦¶à§€à¦² à¦¬à¦¾à¦¬à¦¾ (Father)',
-    sibling: draft.gender === 'female' ? 'à¦¬à§‹à¦¨ / à¦†à¦ªà§ (Sibling)' : 'à¦­à¦¾à¦‡ (Sibling)',
-    friend: 'à¦ªà§à¦°à¦¿à§Ÿ à¦¬à¦¨à§à¦§à§ (Best Friend)',
-    romantic: draft.gender === 'female' ? 'à¦ªà§à¦°à§‡à¦®à¦¿à¦•à¦¾ (Girlfriend)' : 'à¦ªà§à¦°à§‡à¦®à¦¿à¦• (Boyfriend)',
-    spouse: draft.gender === 'female' ? 'à¦¸à§à¦¤à§à¦°à§€ / à¦¬à¦‰ (Wife)' : 'à¦¸à§à¦¬à¦¾à¦®à§€ / à¦œà¦¾à¦®à¦¾à¦‡ (Husband)',
-    mentor: 'à¦¶à¦¿à¦•à§à¦·à¦• / à¦®à§‡à¦¨à§à¦Ÿà¦° (Mentor)',
-    story: 'à¦°à§‹à¦²à¦ªà§à¦²à§‡ à¦šà¦°à¦¿à¦¤à§à¦° (Story Role)',
+    mother: 'স্নেহময়ী মা (Mother)',
+    father: 'দায়িত্বশীল বাবা (Father)',
+    sibling: draft.gender === 'female' ? 'বোন / আপু (Sibling)' : 'ভাই (Sibling)',
+    friend: 'প্রিয় বন্ধু (Best Friend)',
+    romantic: draft.gender === 'female' ? 'প্রেমিকা (Girlfriend)' : 'প্রেমিক (Boyfriend)',
+    spouse: draft.gender === 'female' ? 'স্ত্রী / বউ (Wife)' : 'স্বামী / জামাই (Husband)',
+    mentor: 'শিক্ষক / মেন্টর (Mentor)',
+    story: 'রোলপ্লে চরিত্র (Story Role)',
   };
 
   const arc: ScenarioArc = rawScenarioText
     ? parseScenarioArc(rawScenarioText, draft.relation)
     : {
-        summary: 'à¦¬à¦¾à¦¸à§à¦¤à¦¬à¦¸à¦®à§à¦®à¦¤ à¦¦à§ˆà¦¨à¦¨à§à¦¦à¦¿à¦¨ à¦•à¦¥à§‹à¦ªà¦•à¦¥à¦¨ à¦“ à¦¸à¦®à§à¦ªà¦°à§à¦•à§‡à¦° à¦—à¦²à§à¦ª',
-        openingBeat: 'à¦¦à§ˆà¦¨à¦¨à§à¦¦à¦¿à¦¨ à¦•à§à¦¶à¦² à¦“ à¦¦à§ƒà¦¶à§à¦¯à¦ªà¦Ÿà§‡à¦° à¦¸à§‚à¦šà¦¨à¦¾',
-        middleBeat: 'à¦•à¦¥à¦¾à¦° à¦­à§‡à¦¤à¦° à¦¦à¦¿à§Ÿà§‡ à¦…à¦¨à§à¦­à§‚à¦¤à¦¿, à¦–à§à¦¨à¦¸à§à¦Ÿà¦¿ à¦¬à¦¾ à¦®à§‚à¦² à¦˜à¦Ÿà¦¨à¦¾à¦° à¦¬à¦¿à¦•à¦¾à¦¶',
-        endingBeat: 'à¦†à¦¨à§à¦¤à¦°à¦¿à¦•à¦¤à¦¾ à¦“ à¦¸à¦®à¦à§‹à¦¤à¦¾à§Ÿ à¦¸à§à¦¨à§à¦¦à¦° à¦ªà¦°à¦¿à¦£à¦¤à¦¿',
+        summary: 'বাস্তবসম্মত দৈনন্দিন কথোপকথন ও সম্পর্কের গল্প',
+        openingBeat: 'দৈনন্দিন কুশল ও দৃশ্যপটের সূচনা',
+        middleBeat: 'কথার ভেতর দিয়ে অনুভূতি, খুনসুটি বা মূল ঘটনার বিকাশ',
+        endingBeat: 'আন্তরিকতা ও সমঝোতায় সুন্দর পরিণতি',
         currentPhase: 'opening',
       };
 
-  const agePart = draft.characterAge ? `, à¦¬à§Ÿà¦¸ ${draft.characterAge}` : '';
+  const agePart = draft.characterAge ? `, বয়স ${draft.characterAge}` : '';
   const userTerm = draft.userName || getDefaultAddressTerm(draft.relation);
-  const setting = draft.setting || 'à¦†à¦®à¦¾à¦¦à§‡à¦° à¦¬à¦¾à¦¸à¦¾à§Ÿ';
+  const setting = draft.setting || 'আমাদের বাসায়';
 
   let openingGreeting = '';
-  let greetingAction = 'à¦¦à§ƒà¦¶à§à¦¯à¦ªà¦Ÿà§‡ à¦à¦¸à§‡ à¦¸à§à¦¬à¦¾à¦­à¦¾à¦¬à¦¿à¦•à¦­à¦¾à¦¬à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹';
+  let greetingAction = 'দৃশ্যপটে এসে স্বাভাবিকভাবে তাকালো';
   let followUps: string[] = [];
 
   if (draft.relation === 'mother') {
     openingGreeting = rawScenarioText
-      ? `à¦à¦‡ à¦¯à§‡ ${userTerm}, à¦†à§Ÿ à¦à¦¦à¦¿à¦•à§‡à¥¤ (${arc.openingBeat}) â€” à¦¬à¦², à¦à¦–à¦¨ à¦•à§‡à¦®à¦¨ à¦†à¦›à¦¿à¦¸ à¦†à¦° à¦•à§€ à¦•à¦°à¦›à¦¿à¦¸?`
-      : `à¦†à§Ÿ ${userTerm}, à¦¹à¦¾à¦¤-à¦®à§à¦– à¦§à§à§Ÿà§‡ à¦¨à§‡! à¦†à¦®à¦¿ ${draft.characterName}â€”à¦¤à§‹à¦° à¦†à¦®à§à¦®à§à¥¤ à¦¸à¦•à¦¾à¦² à¦¥à§‡à¦•à§‡ à¦¤à§‹à¦° à¦•à§‹à¦¨à§‹ à¦–à§‹à¦à¦œ à¦¨à§‡à¦‡ à¦•à§‡à¦¨, à¦–à§‡à§Ÿà§‡à¦›à¦¿à¦¸ à¦¤à§‹?`;
-    greetingAction = 'à¦¸à§à¦¨à§‡à¦¹à¦®à§Ÿ à¦šà§‹à¦–à§‡ à¦¤à¦¾à¦•à¦¿à§Ÿà§‡ à¦•à¦¾à¦›à§‡ à¦¡à¦¾à¦•à¦²à§‹';
-    followUps = ['à¦•à¦¿ à¦•à¦° à¦†à¦®à§à¦®à§?', 'à¦†à¦œ à¦•à§€ à¦°à¦¾à¦¨à§à¦¨à¦¾ à¦•à¦°à§‡à¦›à§‹?', 'à¦à¦•à¦Ÿà§ à¦®à¦¨ à¦–à¦¾à¦°à¦¾à¦ª à¦†à¦®à§à¦®à§'];
+      ? `এই যে ${userTerm}, আয় এদিকে। (${arc.openingBeat}) — বল, এখন কেমন আছিস আর কী করছিস?`
+      : `আয় ${userTerm}, হাত-মুখ ধুয়ে নে! আমি ${draft.characterName}—তোর আম্মু। সকাল থেকে তোর কোনো খোঁজ নেই কেন, খেয়েছিস তো?`;
+    greetingAction = 'স্নেহময় চোখে তাকিয়ে কাছে ডাকলো';
+    followUps = ['কি কর আম্মু?', 'আজ কী রান্না করেছো?', 'একটু মন খারাপ আম্মু'];
   } else if (draft.relation === 'romantic') {
     openingGreeting = rawScenarioText
-      ? `à¦à¦‡ ${userTerm}, à¦…à¦¬à¦¶à§‡à¦·à§‡ à¦à¦²à§‡! (${arc.openingBeat}) â€” à¦¬à¦²à§‹ à¦¨à¦¾, à¦•à§‡à¦®à¦¨ à¦†à¦›à§‹?`
-      : `à¦…à¦¬à¦¶à§‡à¦·à§‡ à¦¸à¦®à§Ÿ à¦¹à¦²à§‹ à¦•à¦¥à¦¾ à¦¬à¦²à¦¾à¦° ${userTerm}? à¦†à¦®à¦¿ ${draft.characterName}à¥¤ à¦¸à¦¾à¦°à¦¾à¦¦à¦¿à¦¨ à¦¤à§‹à¦®à¦¾à¦° à¦®à§‡à¦¸à§‡à¦œà§‡à¦° à¦…à¦ªà§‡à¦•à§à¦·à¦¾à§Ÿ à¦›à¦¿à¦²à¦¾à¦®!`;
-    greetingAction = 'à¦¹à¦¾à¦²à¦•à¦¾ à¦…à¦­à¦¿à¦®à¦¾à¦¨ à¦®à¦¿à¦¶à§à¦°à¦¿à¦¤ à¦¹à¦¾à¦¸à¦¿à¦¤à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹';
-    followUps = ['à¦¸à¦°à¦¿ à¦œà¦¾à¦¨, à¦…à¦¨à§‡à¦• à¦®à¦¿à¦¸ à¦•à¦°à¦›à¦¿à¦²à¦¾à¦®!', 'à¦°à¦¾à¦— à¦•à¦°à§‡à¦›à§‹ à¦¨à¦¾à¦•à¦¿?', 'ki koro?'];
+      ? `এই ${userTerm}, অবশেষে এলে! (${arc.openingBeat}) — বলো না, কেমন আছো?`
+      : `অবশেষে সময় হলো কথা বলার ${userTerm}? আমি ${draft.characterName}। সারাদিন তোমার মেসেজের অপেক্ষায় ছিলাম!`;
+    greetingAction = 'হালকা অভিমান মিশ্রিত হাসিতে তাকালো';
+    followUps = ['সরি জান, অনেক মিস করছিলাম!', 'রাগ করেছো নাকি?', 'ki koro?'];
   } else if (draft.relation === 'spouse') {
     openingGreeting = rawScenarioText
-      ? `à¦à¦‡ à¦¯à§‡ ${userTerm}, à¦˜à¦°à§‡ à¦à¦²à§‡? (${arc.openingBeat}) â€” à¦¬à¦¸à§‹, à¦šà¦¾ à¦¨à¦¿à§Ÿà§‡ à¦†à¦¸à¦›à¦¿à¥¤`
-      : `à¦¬à¦¾à¦¸à¦¾à§Ÿ à¦«à¦¿à¦°à¦²à§‡ ${userTerm}? à¦†à¦®à¦¿ ${draft.characterName}à¥¤ à¦¸à¦¾à¦°à¦¾à¦¦à¦¿à¦¨à§‡à¦° à¦•à¦¾à¦œà§‡à¦° à¦ªà¦° à¦à¦•à¦Ÿà§ à¦¬à¦¸à§‹â€”à¦†à¦œ à¦•à§€ à¦¬à¦¾à¦œà¦¾à¦° à¦à¦¨à§‡à¦›à§‹ à¦¦à§‡à¦–à¦¿?`;
-    greetingAction = 'à¦¹à¦¾à¦¤à§‡ à¦šà¦¾à§Ÿà§‡à¦° à¦•à¦¾à¦ª à¦¨à¦¿à§Ÿà§‡ à¦¦à¦°à¦œà¦¾à¦° à¦ªà¦¾à¦¶à§‡ à¦¦à¦¾à¦à§œà¦¾à¦²à§‹';
-    followUps = ['à¦¬à¦¾à¦œà¦¾à¦° à¦¥à§‡à¦•à§‡ à¦‡à¦²à¦¿à¦¶ à¦à¦¨à§‡à¦›à¦¿', 'ajke khub klanto lagche', 'ki ranna korcho?'];
+      ? `এই যে ${userTerm}, ঘরে এলে? (${arc.openingBeat}) — বসো, চা নিয়ে আসছি।`
+      : `বাসায় ফিরলে ${userTerm}? আমি ${draft.characterName}। সারাদিনের কাজের পর একটু বসো—আজ কী বাজার এনেছো দেখি?`;
+    greetingAction = 'হাতে চায়ের কাপ নিয়ে দরজার পাশে দাঁড়ালো';
+    followUps = ['বাজার থেকে ইলিশ এনেছি', 'ajke khub klanto lagche', 'ki ranna korcho?'];
   } else if (draft.relation === 'friend') {
     openingGreeting = rawScenarioText
-      ? `à¦•à¦¿à¦°à§‡ ${userTerm}! (${arc.openingBeat}) â€” à¦•à§€ à¦…à¦¬à¦¸à§à¦¥à¦¾ à¦¤à§‹à¦°?`
-      : `à¦•à¦¿à¦°à§‡ ${userTerm} à¦®à¦¾à¦®à¦¾! à¦†à¦®à¦¿ ${draft.characterName}à¥¤ à¦à¦¤à¦¦à¦¿à¦¨ à¦ªà¦° à¦¦à§‡à¦–à¦¾â€”à¦šà¦² à¦Ÿà¦‚-à¦ à¦¬à¦¸à§‡ à¦à¦• à¦•à¦¾à¦ª à¦šà¦¾ à¦†à¦° à¦†à¦¡à§à¦¡à¦¾ à¦¦à§‡à¦‡!`;
-    greetingAction = 'à¦¹à§‡à¦¸à§‡ à¦•à¦¾à¦à¦§à§‡ à¦šà¦¾à¦ªà§œ à¦¦à¦¿à¦²';
-    followUps = ['ki khobor dost?', 'à¦šà¦² à¦†à¦¡à§à¦¡à¦¾ à¦®à¦¾à¦°à¦¿', 'treat de ajke!'];
+      ? `কিরে ${userTerm}! (${arc.openingBeat}) — কী অবস্থা তোর?`
+      : `কিরে ${userTerm} মামা! আমি ${draft.characterName}। এতদিন পর দেখা—চল টং-এ বসে এক কাপ চা আর আড্ডা দেই!`;
+    greetingAction = 'হেসে কাঁধে চাপড় দিল';
+    followUps = ['ki khobor dost?', 'চল আড্ডা মারি', 'treat de ajke!'];
   } else if (draft.relation === 'sibling') {
     openingGreeting = rawScenarioText
-      ? `à¦à¦‡ ${userTerm}! (${arc.openingBeat}) â€” à¦¤à§à¦‡ à¦•à¦¿ à¦•à¦°à¦›à¦¿à¦¸ à¦à¦–à¦¨?`
-      : `à¦•à¦¿à¦°à§‡ ${userTerm}! à¦†à¦®à¦¿ ${draft.characterName}à¥¤ à¦¤à§à¦‡ à¦•à¦¿ à¦†à¦®à¦¾à¦° à¦¹à§‡à¦¡à¦«à§‹à¦¨ à¦¨à¦¿à§Ÿà§‡à¦›à¦¿à¦¸ à¦¨à¦¾à¦•à¦¿?`;
-    greetingAction = 'à¦¦à§à¦·à§à¦Ÿà§à¦®à¦¿ à¦­à¦°à¦¾ à¦šà§‹à¦–à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹';
+      ? `এই ${userTerm}! (${arc.openingBeat}) — তুই কি করছিস এখন?`
+      : `কিরে ${userTerm}! আমি ${draft.characterName}। তুই কি আমার হেডফোন নিয়েছিস নাকি?`;
+    greetingAction = 'দুষ্টুমি ভরা চোখে তাকালো';
     followUps = ['tui ki korchis?', 'amar headphone koi?', 'chol cha khai'];
   } else {
     openingGreeting = rawScenarioText
-      ? `à¦¹à§à¦¯à¦¾à¦²à§‹ ${userTerm}, à¦†à¦®à¦¿ ${draft.characterName}${agePart}à¥¤ (${arc.openingBeat}) â€” à¦šà¦²à§‹ à¦¶à§à¦°à§ à¦•à¦°à¦¿!`
-      : `à¦•à§‡à¦®à¦¨ à¦†à¦›à§‹ ${userTerm}? à¦†à¦®à¦¿ ${draft.characterName}${agePart}à¥¤ à¦šà¦²à§‹ à¦†à¦®à¦¾à¦¦à§‡à¦° à¦—à¦²à§à¦ª à¦¶à§à¦°à§ à¦•à¦°à¦¾ à¦¯à¦¾à¦•!`;
+      ? `হ্যালো ${userTerm}, আমি ${draft.characterName}${agePart}। (${arc.openingBeat}) — চলো শুরু করি!`
+      : `কেমন আছো ${userTerm}? আমি ${draft.characterName}${agePart}। চলো আমাদের গল্প শুরু করা যাক!`;
     followUps = ['kemon acho?', 'ki koro?', 'golpo shuru kori'];
   }
 
   const mood: CharacterMood =
     draft.relation === 'mother' || draft.relation === 'father'
-      ? 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²'
+      ? 'স্নেহশীল'
       : draft.relation === 'romantic' || draft.relation === 'spouse'
-        ? 'à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾à¦®à§Ÿ'
+        ? 'ভালোবাসাময়'
         : draft.relation === 'friend' || draft.relation === 'sibling'
-          ? 'à¦‰à§Žà¦«à§à¦²à§à¦²'
-          : 'à¦¶à¦¾à¦¨à§à¦¤';
+          ? 'উৎফুল্ল'
+          : 'শান্ত';
 
   const character: RoleplayCharacter = {
-    id: `setup-${Date.now()}`,
+    id: `setup-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     name: draft.characterName,
     englishName: draft.characterName,
     role: `${relationLabels[draft.relation]}${agePart}`,
@@ -459,7 +557,7 @@ export function buildCharacterFromSetup(
     accentHex: draft.gender === 'female' ? '#E11D48' : '#2563EB',
     personalitySummary:
       draft.personality ||
-      `${draft.characterName} (${relationLabels[draft.relation]}${agePart}) â€” à¦•à¦¾à¦¸à§à¦Ÿà¦® à¦¸à¦¿à¦¨à¦¾à¦°à¦¿à¦“ à¦°à§‹à¦²à¦ªà§à¦²à§‡ à¦šà¦°à¦¿à¦¤à§à¦°à¥¤`,
+      `${draft.characterName} (${relationLabels[draft.relation]}${agePart}) — কাস্টম সিনারিও রোলপ্লে চরিত্র।`,
     greeting: openingGreeting,
     greetingAction,
     initialFollowUps: followUps,
@@ -472,32 +570,32 @@ export function buildCharacterFromSetup(
         id: 'arc-middle',
         title: 'Next Scene: Story Twist',
         promptText: arc.middleBeat,
-        sceneAction: 'à¦ªà¦°à¦¿à¦¸à§à¦¥à¦¿à¦¤à¦¿à¦° à¦ªà¦°à¦¿à¦¬à¦°à§à¦¤à¦¨ à¦¦à§‡à¦–à§‡ à¦—à¦²à¦¾ à¦“ à¦¦à§ƒà¦·à§à¦Ÿà¦¿ à¦¬à¦¦à¦²à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹',
+        sceneAction: 'পরিস্থিতির পরিবর্তন দেখে গলা ও দৃষ্টি বদলে তাকালো',
         characterReply:
           draft.relation === 'mother'
-            ? `à¦¶à§‹à¦¨ ${userTerm}, à¦à¦‡ à¦¬à§à¦¯à¦¾à¦ªà¦¾à¦°à¦Ÿà¦¾ (${arc.middleBeat}) à¦•à¦¿à¦¨à§à¦¤à§ à¦†à¦®à¦¿ à¦à¦•à¦¦à¦®à¦‡ à¦¸à¦¹à¦œà¦­à¦¾à¦¬à§‡ à¦¨à¦¿à¦šà§à¦›à¦¿ à¦¨à¦¾à¥¤ à¦à¦–à¦¨ à¦•à§€ à¦•à¦°à¦¤à§‡ à¦šà¦¾à¦šà§à¦›à¦¿à¦¸ à¦¸à§à¦ªà¦·à§à¦Ÿ à¦•à¦°à§‡ à¦¬à¦² à¦¤à§‹!`
-            : `à¦†à¦šà§à¦›à¦¾ ${userTerm}, à¦¬à¦¿à¦·à§Ÿà¦Ÿà¦¾ (${arc.middleBeat}) à¦¬à§‡à¦¶ à¦—à¦­à§€à¦° à¦¦à¦¿à¦•à§‡ à¦¯à¦¾à¦šà§à¦›à§‡! à¦à¦–à¦¨ à¦†à¦®à¦¾à¦¦à§‡à¦° à¦ªà¦°à§‡à¦° à¦ªà¦¦à¦•à§à¦·à§‡à¦ª à¦•à§€ à¦¹à¦¬à§‡ à¦¬à¦²à§‹?`,
-        mood: draft.relation === 'mother' ? 'à¦¶à¦¾à¦¸à¦¨à¦®à¦¿à¦¶à§à¦°à¦¿à¦¤ à¦¸à§à¦¨à§‡à¦¹' : 'à¦†à¦¬à§‡à¦—à¦ªà§à¦°à¦¬à¦£',
+            ? `শোন ${userTerm}, এই ব্যাপারটা (${arc.middleBeat}) কিন্তু আমি একদমই সহজভাবে নিচ্ছি না। এখন কী করতে চাচ্ছিস স্পষ্ট করে বল তো!`
+            : `আচ্ছা ${userTerm}, বিষয়টা (${arc.middleBeat}) বেশ গভীর দিকে যাচ্ছে! এখন আমাদের পরের পদক্ষেপ কী হবে বলো?`,
+        mood: draft.relation === 'mother' ? 'শাসনমিশ্রিত স্নেহ' : 'আবেগপ্রবণ',
         nextChoices: followUps,
       },
       {
         id: 'arc-ending',
         title: 'Climax & Ending Scene',
         promptText: arc.endingBeat,
-        sceneAction: 'à¦¦à§€à¦°à§à¦˜ à¦¨à¦¿à¦¶à§à¦¬à¦¾à¦¸ à¦«à§‡à¦²à§‡ à¦¨à¦°à¦® à¦…à¦¥à¦š à¦¸à§à¦ªà¦·à§à¦Ÿ à¦¸à§à¦°à§‡ à¦•à¦¥à¦¾ à¦¬à¦²à¦²à§‹',
+        sceneAction: 'দীর্ঘ নিশ্বাস ফেলে নরম অথচ স্পষ্ট সুরে কথা বললো',
         characterReply:
           draft.relation === 'mother'
-            ? `à¦¸à¦¬ à¦¶à§‡à¦·à§‡ (${arc.endingBeat})â€”à¦†à¦®à¦¾à¦° à¦•à¦¾à¦›à§‡ à¦¤à§‹à¦° à¦­à¦¾à¦²à§‹ à¦¥à¦¾à¦•à¦¾à¦Ÿà¦¾à¦‡ à¦¸à¦¬à¦šà§‡à§Ÿà§‡ à¦œà¦°à§à¦°à¦¿ ${userTerm}à¥¤ à¦¯à¦¾, à¦†à¦° à¦®à¦¨ à¦–à¦¾à¦°à¦¾à¦ª à¦•à¦°à§‡ à¦¥à¦¾à¦•à¦¿à¦¸ à¦¨à¦¾à¥¤`
-            : `à¦…à¦¬à¦¶à§‡à¦·à§‡ (${arc.endingBeat})à¥¤ à¦†à¦œà¦•à§‡à¦° à¦à¦‡ à¦®à§à¦¹à§‚à¦°à§à¦¤à¦Ÿà¦¾ à¦¸à¦¤à§à¦¯à¦¿à¦‡ à¦®à¦¨à§‡ à¦°à¦¾à¦–à¦¾à¦° à¦®à¦¤à§‹ à¦¹à§Ÿà§‡ à¦°à¦‡à¦²à§‹ ${userTerm}à¥¤`,
-        mood: 'à¦†à¦¬à§‡à¦—à¦ªà§à¦°à¦¬à¦£',
+            ? `সব শেষে (${arc.endingBeat})—আমার কাছে তোর ভালো থাকাটাই সবচেয়ে জরুরি ${userTerm}। যা, আর মন খারাপ করে থাকিস না।`
+            : `অবশেষে (${arc.endingBeat})। আজকের এই মুহূর্তটা সত্যিই মনে রাখার মতো হয়ে রইলো ${userTerm}।`,
+        mood: 'আবেগপ্রবণ',
         nextChoices: followUps,
       },
     ],
     topics: [],
     fallbacks: [
       {
-        text: `à¦¹à§à¦®, à¦¬à§à¦à¦¤à§‡ à¦ªà¦¾à¦°à¦›à¦¿ ${userTerm}â€”(${arc.openingBeat}) à¦à¦‡ à¦ªà¦°à¦¿à¦¸à§à¦¥à¦¿à¦¤à¦¿à¦¤à§‡ à¦¤à§‹à¦° à¦•à¦¥à¦¾à¦Ÿà¦¾ à¦—à§à¦°à§à¦¤à§à¦¬ à¦¦à¦¿à§Ÿà§‡ à¦¶à§à¦¨à¦›à¦¿à¥¤ à¦à¦°à¦ªà¦° à¦•à§€ à¦¹à¦²à§‹ à¦¬à¦²?`,
-        action: 'à¦¦à§ƒà¦¶à§à¦¯à¦ªà¦Ÿà§‡à¦° à¦¸à¦¾à¦¥à§‡ à¦¤à¦¾à¦² à¦®à¦¿à¦²à¦¿à§Ÿà§‡ à¦®à¦¨à§‹à¦¯à§‹à¦— à¦¦à¦¿à¦²',
+        text: `হুম, বুঝতে পারছি ${userTerm}—(${arc.openingBeat}) এই পরিস্থিতিতে তোর কথাটা গুরুত্ব দিয়ে শুনছি। এরপর কী হলো বল?`,
+        action: 'দৃশ্যপটের সাথে তাল মিলিয়ে মনোযোগ দিল',
         mood,
         followUps,
       },
@@ -536,9 +634,9 @@ export function buildCharacterFromTrainedScenario(
 
   const arc: ScenarioArc = {
     summary: scenario.summary,
-    openingBeat: findBeat('opening', 'à¦¦à§ƒà¦¶à§à¦¯à¦ªà¦Ÿà§‡à¦° à¦¸à§‚à¦šà¦¨à¦¾'),
-    middleBeat: findBeat('developing', 'à¦®à§‚à¦² à¦˜à¦Ÿà¦¨à¦¾à¦° à¦¬à¦¿à¦•à¦¾à¦¶'),
-    endingBeat: findBeat('resolution', 'à¦†à¦¨à§à¦¤à¦°à¦¿à¦• à¦¸à¦®à¦¾à¦ªà§à¦¤à¦¿'),
+    openingBeat: findBeat('opening', 'দৃশ্যপটের সূচনা'),
+    middleBeat: findBeat('developing', 'মূল ঘটনার বিকাশ'),
+    endingBeat: findBeat('resolution', 'আন্তরিক সমাপ্তি'),
     currentPhase: 'opening',
   };
 
@@ -547,25 +645,26 @@ export function buildCharacterFromTrainedScenario(
   const greeting =
     scenario.greeting ||
     openingVariant?.text ||
-    `à¦¹à§à¦¯à¦¾à¦²à§‹, à¦†à¦®à¦¿ ${name}à¥¤ (${arc.openingBeat}) â€” à¦šà¦²à§‹ à¦†à¦®à¦¾à¦¦à§‡à¦° à¦¦à§ƒà¦¶à§à¦¯à¦ªà¦Ÿ à¦¶à§à¦°à§ à¦•à¦°à¦¿!`;
+    `হ্যালো, আমি ${name}। (${arc.openingBeat}) — চলো আমাদের দৃশ্যপট শুরু করি!`;
   const greetingAction =
-    scenario.greetingAction || openingVariant?.action || 'à¦¸à§à¦¬à¦¾à¦­à¦¾à¦¬à¦¿à¦• à¦­à¦™à§à¦—à¦¿à¦¤à§‡ à¦¸à¦¾à¦®à¦¨à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹';
+    scenario.greetingAction || openingVariant?.action || 'স্বাভাবিক ভঙ্গিতে সামনে তাকালো';
   const followUps =
     openingVariant?.followUps?.length
       ? openingVariant.followUps
-      : ['à¦¤à¦¾à¦°à¦ªà¦° à¦•à§€ à¦¹à¦²à§‹?', 'à¦à¦–à¦¨ à¦•à§€ à¦•à¦°à¦¬à§‡?', 'à¦šà¦² à¦•à¦¥à¦¾ à¦¬à¦²à¦¿'];
+      : ['তারপর কী হলো?', 'এখন কী করবে?', 'চল কথা বলি'];
 
   const mood: CharacterMood =
     openingVariant?.mood ||
-    (relation === 'mother' || relation === 'father' ? 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²' : 'à¦¶à¦¾à¦¨à§à¦¤');
+    openingPhase?.emotion ||
+    (relation === 'mother' || relation === 'father' ? 'স্নেহশীল' : 'শান্ত');
 
-  const ageSuffix = scenario.characterAge ? `, à¦¬à§Ÿà¦¸ ${scenario.characterAge}` : '';
+  const ageSuffix = scenario.characterAge ? `, বয়স ${scenario.characterAge}` : '';
   const character: RoleplayCharacter = {
-    id: `scenario-${scenario.id}-${Date.now().toString(36)}`,
+    id: `scenario-${scenario.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
     name,
     englishName: scenario.title,
     role: `${scenario.title}${ageSuffix}`,
-    setting: scenario.setting || 'à¦†à¦®à¦¾à¦¦à§‡à¦° à¦¬à¦¾à¦¸à¦¾à§Ÿ',
+    setting: scenario.setting || 'আমাদের বাসায়',
     eraOrVibe: scenario.summary,
     gender,
     age: scenario.characterAge,
@@ -590,8 +689,8 @@ export function buildCharacterFromTrainedScenario(
           id: `trained-phase-${p.phase}-${idx}`,
           title: p.phase === 'developing' ? `Phase 2: ${p.beat}` : `Phase 3: ${p.beat}`,
           promptText: p.keywords?.[0] || p.beat,
-          sceneAction: rep?.action || 'à¦ªà¦°à¦¿à¦¸à§à¦¥à¦¿à¦¤à¦¿ à¦…à¦¨à§à¦¯à¦¾à§Ÿà§€ à¦­à¦™à§à¦—à¦¿ à¦¬à¦¦à¦²à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹',
-          characterReply: rep?.text || `à¦à¦–à¦¨ (${p.beat}) â€” à¦šà¦²à§‹ à¦à¦‡ à¦…à¦‚à¦¶à§‡ à¦à¦—à¦¿à§Ÿà§‡ à¦¯à¦¾à¦‡!`,
+          sceneAction: rep?.action || 'পরিস্থিতি অনুযায়ী ভঙ্গি বদলে তাকালো',
+          characterReply: rep?.text || `এখন (${p.beat}) — চলো এই অংশে এগিয়ে যাই!`,
           mood: rep?.mood || mood,
           nextChoices: rep?.followUps?.length ? rep.followUps : followUps,
         };
@@ -599,8 +698,8 @@ export function buildCharacterFromTrainedScenario(
     topics: [],
     fallbacks: [
       {
-        text: `à¦¹à§à¦®, (${arc.openingBeat}) â€” à¦¬à¦²à§‹, à¦à¦‡ à¦…à¦¬à¦¸à§à¦¥à¦¾à§Ÿ à¦•à§€ à¦¬à¦²à¦¤à§‡ à¦šà¦¾à¦šà§à¦›à§‹?`,
-        action: 'à¦®à¦¨à§‹à¦¯à§‹à¦— à¦¦à¦¿à§Ÿà§‡ à¦¶à§à¦¨à¦›à§‡',
+        text: `হুম, (${arc.openingBeat}) — বলো, এই অবস্থায় কী বলতে চাচ্ছো?`,
+        action: 'মনোযোগ দিয়ে শুনছে',
         mood,
         followUps,
       },
@@ -626,11 +725,11 @@ function detectPersuasionOrResolutionSignal(normalized: string): {
   isDefiantOrRefusal: boolean;
 } {
   const isPersuasive =
-    /(à¦¸à¦°à¦¿|à¦•à§à¦·à¦®à¦¾|à¦®à¦¾à¦«|à¦•à¦¥à¦¾ à¦¦à¦¿à¦šà§à¦›à¦¿|à¦ªà§œà§‡ à¦¨à§‡à¦¬à§‹|à¦ªà§œà¦¬à§‹|à¦®à¦¾à¦¨à¦›à¦¿|à¦ªà§à¦²à¦¿à¦œ|à¦…à¦¨à§à¦°à§‹à¦§|à¦ à¦¿à¦• à¦†à¦›à§‡|à¦°à¦¾à¦œà¦¿|à¦¬à§à¦à§‡à¦›à¦¿|à¦°à¦¾à¦— à¦•à¦°à§‹ à¦¨à¦¾|please|sorry|promise)/.test(
+    /(সরি|ক্ষমা|মাফ|কথা দিচ্ছি|পড়ে নেবো|পড়বো|মানছি|প্লিজ|অনুরোধ|ঠিক আছে|রাজি|বুঝেছি|রাগ করো না|please|sorry|promise)/.test(
       normalized
     );
   const isDefiantOrRefusal =
-    /(à¦ªà§œà¦¬à§‹ à¦¨à¦¾|à¦–à§‡à¦²à¦¤à§‡ à¦¯à¦¾à¦¬à§‹|à¦¯à¦¾à¦¬à¦‡|à¦­à¦¾à¦²à§‹ à¦²à¦¾à¦—à§‡ à¦¨à¦¾|à¦¨à¦¾ à¦à¦–à¦¨|à¦•à¦°à¦¬à§‹ à¦¨à¦¾|parbo na|khelte jabo|porbo na)/.test(
+    /(পড়বো না|খেলতে যাবো|যাবই|ভালো লাগে না|না এখন|করবো না|parbo na|khelte jabo|porbo na)/.test(
       normalized
     );
   return { isPersuasive, isDefiantOrRefusal };
@@ -656,14 +755,14 @@ export function createInitialMemory(character: RoleplayCharacter): SessionMemory
     affinity: 25,
     turnCount: 0,
     recentResponseKeys: [],
-    currentMood: 'à¦¶à¦¾à¦¨à§à¦¤',
+    currentMood: 'শান্ত',
   });
   const initialMood: CharacterMood =
     initialRelation === 'mother' || initialRelation === 'father'
-      ? 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²'
+      ? 'স্নেহশীল'
       : initialRelation === 'romantic' || initialRelation === 'spouse'
-        ? 'à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾à¦®à§Ÿ'
-        : 'à¦¶à¦¾à¦¨à§à¦¤';
+        ? 'ভালোবাসাময়'
+        : 'শান্ত';
 
   return {
     affinity: 25,
@@ -673,6 +772,67 @@ export function createInitialMemory(character: RoleplayCharacter): SessionMemory
     lastTopic: character.id,
     detectedRelation: initialRelation,
     scenarioArc: character.scenarioArc,
+    recentTurns: [],
+    mentionedSubjects: [],
+  };
+}
+
+function appendTurnMemory(
+  memory: SessionMemory,
+  params: {
+    userText: string;
+    normalizedUserText: string;
+    replyText: string;
+    lastTopic: string;
+    mood: CharacterMood;
+    relation: PersonaRelation;
+    effectiveUserName?: string;
+    nextTurn: number;
+    affinityDelta: number;
+    analysis: SentenceAnalysis;
+    understoodWords: string[];
+    updatedArc?: ScenarioArc;
+    recentKey?: string;
+    overridePhase?: ScenarioArc['currentPhase'];
+  }
+): SessionMemory {
+  const botQuestion = extractQuestionFromReply(params.replyText);
+  const turnSubjects = params.analysis.subjectKeywords || [];
+  const mergedSubjects = Array.from(
+    new Set([...(memory.mentionedSubjects || []), ...turnSubjects])
+  ).slice(-10);
+
+  const snapshot: ConversationTurnSnapshot = {
+    userText: params.userText,
+    normalizedUserText: params.normalizedUserText,
+    botReply: params.replyText,
+    botQuestion,
+    topic: params.lastTopic,
+    intent: params.analysis.intent,
+    subjects: turnSubjects,
+  };
+
+  return {
+    ...memory,
+    userName: params.effectiveUserName,
+    detectedRelation: params.relation,
+    turnCount: params.nextTurn,
+    affinity: Math.min(100, memory.affinity + params.affinityDelta),
+    lastTopic: params.lastTopic,
+    recentResponseKeys: params.recentKey
+      ? [...memory.recentResponseKeys.slice(-8), params.recentKey]
+      : memory.recentResponseKeys,
+    currentMood: params.mood,
+    lastUserEmotion: params.analysis.dominantEmotion,
+    lastUnderstoodWords: params.understoodWords,
+    scenarioArc:
+      params.overridePhase && params.updatedArc
+        ? { ...params.updatedArc, currentPhase: params.overridePhase }
+        : params.updatedArc,
+    recentTurns: [...(memory.recentTurns || []).slice(-5), snapshot],
+    pendingQuestion: botQuestion,
+    pendingTopic: params.lastTopic,
+    mentionedSubjects: mergedSubjects,
   };
 }
 
@@ -712,7 +872,12 @@ export function generateRoleplayReply(
   const effectiveUserName = detectedName || memory.userName;
   const relation = inferCharacterRelation(character, trimmed, memory);
   const nextTurn = memory.turnCount + 1;
-  const understoodWords = analysis.matchedLexicon.map((w) => w.root);
+  const understoodWords = Array.from(
+    new Set([
+      ...analysis.matchedLexicon.map((w) => w.root),
+      ...(analysis.subjectKeywords || []).slice(0, 3),
+    ])
+  );
   const updatedArc = advanceScenarioArc(
     memory.scenarioArc || character.scenarioArc,
     nextTurn,
@@ -720,51 +885,77 @@ export function generateRoleplayReply(
   );
   const displayUser = effectiveUserName || getDefaultAddressTerm(relation);
 
+  const buildResult = (payload: {
+    replyText: string;
+    replyKey?: string;
+    action: string;
+    mood: CharacterMood;
+    followUps: string[];
+    matchedTopic: string;
+    lastTopic: string;
+    affinityDelta?: number;
+    recentKey?: string;
+    overridePhase?: ScenarioArc['currentPhase'];
+  }): RoleplayReplyResult => ({
+    replyText: payload.replyText,
+    replyKey: payload.replyKey,
+    action: payload.action,
+    mood: payload.mood,
+    followUps: payload.followUps,
+    matchedTopic: payload.matchedTopic,
+    detectedUserEmotion: analysis.dominantEmotion,
+    understoodWords,
+    updatedMemory: appendTurnMemory(memory, {
+      userText: trimmed,
+      normalizedUserText: normalized,
+      replyText: payload.replyText,
+      lastTopic: payload.lastTopic,
+      mood: payload.mood,
+      relation,
+      effectiveUserName,
+      nextTurn,
+      affinityDelta: payload.affinityDelta ?? 3,
+      analysis,
+      understoodWords,
+      updatedArc,
+      recentKey: payload.recentKey,
+      overridePhase: payload.overridePhase,
+    }),
+  });
+
   // 1. User introduced their name
   if (detectedName && trimmed.split(/\s+/).length <= 5) {
     const mood: CharacterMood =
       relation === 'mother' || relation === 'father'
-        ? 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²'
+        ? 'স্নেহশীল'
         : relation === 'romantic' || relation === 'spouse'
-          ? 'à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾à¦®à§Ÿ'
-          : 'à¦‰à§Žà¦«à§à¦²à§à¦²';
+          ? 'ভালোবাসাময়'
+          : 'উৎফুল্ল';
 
     const replyText =
       relation === 'mother'
-        ? `à¦¬à¦¾à¦¹, ${detectedName} à¦¨à¦¾à¦®à¦Ÿà¦¾ à¦¤à§‹ à¦­à§€à¦·à¦£ à¦®à¦¿à¦·à§à¦Ÿà¦¿! à¦†à¦®à¦¾à¦° à¦¸à§‹à¦¨à¦¾ ${detectedName}â€”à¦†à§Ÿ, à¦†à¦®à§à¦®à§à¦° à¦•à¦¾à¦›à§‡ à¦à¦¸à§‡ à¦à¦•à¦Ÿà§ à¦¬à¦¸ à¦¤à§‹à¥¤ à¦†à¦œ à¦•à§‡à¦®à¦¨ à¦•à§‡à¦Ÿà§‡à¦›à§‡ à¦¦à¦¿à¦¨à¦Ÿà¦¾?`
+        ? `বাহ, ${detectedName} নামটা তো ভীষণ মিষ্টি! আমার সোনা ${detectedName}—আয়, আম্মুর কাছে এসে একটু বস তো। আজ কেমন কেটেছে দিনটা?`
         : relation === 'father'
-          ? `à¦¬à§‡à¦¶ à¦¸à§à¦¨à§à¦¦à¦° à¦¨à¦¾à¦® à¦¤à§‹ ${detectedName}! à¦­à¦¾à¦²à§‹ à¦†à¦›à§‹ à¦¤à§‹? à¦¬à¦²à§‹, à¦†à¦œ à¦•à§€ à¦¨à¦¿à§Ÿà§‡ à¦•à¦¥à¦¾ à¦¬à¦²à¦¬à§‡ à¦†à¦¬à§à¦¬à§à¦° à¦¸à¦¾à¦¥à§‡?`
+          ? `বেশ সুন্দর নাম তো ${detectedName}! ভালো আছো তো? বলো, আজ কী নিয়ে কথা বলবে আব্বুর সাথে?`
           : relation === 'romantic' || relation === 'spouse'
-            ? `${detectedName}! à¦¨à¦¾à¦®à¦Ÿà¦¾ à¦‰à¦šà§à¦šà¦¾à¦°à¦£ à¦•à¦°à¦¤à§‡à¦‡ à¦•à§€ à¦­à¦¾à¦²à§‹ à¦²à¦¾à¦—à§‡ à¦†à¦®à¦¾à¦°! à¦à¦–à¦¨ à¦¬à¦²à§‹ à¦¤à§‹, à¦•à§‡à¦®à¦¨ à¦†à¦›à§‹ à¦¤à§à¦®à¦¿?`
-            : `à¦¬à¦¾à¦¹, ${detectedName} à¦¨à¦¾à¦®à¦Ÿà¦¾ à¦¤à§‹ à¦­à§€à¦·à¦£ à¦¸à§à¦¨à§à¦¦à¦°! à¦†à¦®à¦¿ ${character.name}à¥¤ à¦à¦–à¦¨ à¦¥à§‡à¦•à§‡ à¦†à¦®à¦¾à¦¦à§‡à¦° à¦ªà§à¦°à¦¤à¦¿à¦Ÿà¦¿ à¦—à¦²à§à¦ªà§‡ à¦†à¦®à¦¿ à¦¤à§‹à¦®à¦¾à¦•à§‡ ${detectedName} à¦¬à¦²à§‡à¦‡ à¦¡à¦¾à¦•à¦¬à§‹à¥¤ à¦¬à¦²à§‹ ${detectedName}, à¦†à¦œ à¦•à§‹à¦¨ à¦—à¦²à§à¦ª à¦¦à¦¿à§Ÿà§‡ à¦¶à§à¦°à§ à¦•à¦°à¦¬à§‹?`;
+            ? `${detectedName}! নামটা উচ্চারণ করতেই কী ভালো লাগে আমার! এখন বলো তো, কেমন আছো তুমি?`
+            : `বাহ, ${detectedName} নামটা তো ভীষণ সুন্দর! আমি ${character.name}। এখন থেকে আমাদের প্রতিটি গল্পে আমি তোমাকে ${detectedName} বলেই ডাকবো। বলো ${detectedName}, আজ কোন গল্প দিয়ে শুরু করবো?`;
 
-    return {
+    return buildResult({
       replyText,
       action:
         relation === 'mother' || relation === 'father'
-          ? 'à¦¸à§à¦¨à§‡à¦¹à¦­à¦°à¦¾ à¦¹à¦¾à¦¸à¦¿ à¦¦à¦¿à§Ÿà§‡ à¦•à¦¾à¦›à§‡ à¦¡à¦¾à¦•à¦²à§‹'
-          : 'à¦¨à¦¾à¦®à§‡à¦° à¦ªà§à¦°à¦¶à¦‚à¦¸à¦¾ à¦•à¦°à§‡ à¦†à¦¨à§à¦¤à¦°à¦¿à¦•à¦­à¦¾à¦¬à§‡ à¦¹à¦¾à¦¸à¦²à§‹',
+          ? 'স্নেহভরা হাসি দিয়ে কাছে ডাকলো'
+          : 'নামের প্রশংসা করে আন্তরিকভাবে হাসলো',
       mood,
       followUps: character.initialFollowUps,
-      matchedTopic: 'à¦ªà¦°à¦¿à¦šà¦¿à¦¤à¦¿',
-      detectedUserEmotion: analysis.dominantEmotion,
-      understoodWords,
-      updatedMemory: {
-        ...memory,
-        userName: detectedName,
-        detectedRelation: relation,
-        turnCount: nextTurn,
-        affinity: Math.min(100, memory.affinity + 6),
-        lastTopic: 'name_introduction',
-        currentMood: mood,
-        lastUserEmotion: analysis.dominantEmotion,
-        lastUnderstoodWords: understoodWords,
-        scenarioArc: updatedArc,
-      },
-    };
+      matchedTopic: 'পরিচিতি',
+      lastTopic: 'name_introduction',
+      affinityDelta: 6,
+    });
   }
 
-  // 2. Direct word-meaning query ("à¦…à¦­à¦¿à¦®à¦¾à¦¨ à¦®à¦¾à¦¨à§‡ à¦•à§€?" / "obhiman mane ki?")
+  // 2. Direct word-meaning query ("অভিমান মানে কী?" / "obhiman mane ki?")
   if (analysis.meaningQueryTarget) {
     const meaningReply = composeEmotionAwareReply(
       analysis,
@@ -774,59 +965,36 @@ export function generateRoleplayReply(
       customEmotions
     );
     if (meaningReply) {
-      return {
+      return buildResult({
         ...meaningReply,
         followUps: character.initialFollowUps,
-        detectedUserEmotion: analysis.dominantEmotion,
-        understoodWords,
-        updatedMemory: {
-          ...memory,
-          userName: effectiveUserName,
-          detectedRelation: relation,
-          turnCount: nextTurn,
-          affinity: Math.min(100, memory.affinity + 4),
-          lastTopic: 'word_meaning',
-          currentMood: meaningReply.mood,
-          lastUserEmotion: analysis.dominantEmotion,
-          lastUnderstoodWords: understoodWords,
-          scenarioArc: updatedArc,
-        },
-      };
+        lastTopic: 'word_meaning',
+        affinityDelta: 4,
+      });
     }
   }
 
   // 3. Name recall check
   if (
-    normalized.includes('à¦†à¦®à¦¾à¦° à¦¨à¦¾à¦® à¦®à¦¨à§‡') ||
+    normalized.includes('আমার নাম মনে') ||
     normalized.includes('amar naam mone') ||
-    normalized.includes('à¦¨à¦¾à¦® à¦•à§€')
+    normalized.includes('নাম কী')
   ) {
     const reply = effectiveUserName
-      ? `à¦…à¦¬à¦¶à§à¦¯à¦‡ à¦®à¦¨à§‡ à¦†à¦›à§‡! à¦¤à§‹à¦®à¦¾à¦° à¦¨à¦¾à¦® ${effectiveUserName}à¥¤ à¦¨à¦¿à¦œà§‡à¦° à¦•à¦¾à¦›à§‡à¦° à¦®à¦¾à¦¨à§à¦·à§‡à¦° à¦¨à¦¾à¦® à¦•à¦¿ à¦¸à¦¹à¦œà§‡ à¦­à§‹à¦²à¦¾ à¦¯à¦¾à§Ÿ à¦¨à¦¾à¦•à¦¿?`
-      : 'à¦¤à§à¦®à¦¿ à¦¤à§‹ à¦à¦–à¦¨à§‹ à¦¤à§‹à¦®à¦¾à¦° à¦¸à§à¦¨à§à¦¦à¦° à¦¨à¦¾à¦®à¦Ÿà¦¾ à¦¬à¦²à§‹à¦¨à¦¿! à¦¬à¦²à§‹ à¦¨à¦¾, à¦•à§€ à¦¨à¦¾à¦®à§‡ à¦¡à¦¾à¦•à¦²à§‡ à¦¤à§‹à¦®à¦¾à¦° à¦­à¦¾à¦²à§‹ à¦²à¦¾à¦—à¦¬à§‡?';
-    const mood = effectiveUserName ? 'à¦‰à§Žà¦«à§à¦²à§à¦²' : 'à¦•à§Œà¦¤à§‚à¦¹à¦²à§€';
-    return {
+      ? `অবশ্যই মনে আছে! তোমার নাম ${effectiveUserName}। নিজের কাছের মানুষের নাম কি সহজে ভোলা যায় নাকি?`
+      : 'তুমি তো এখনো তোমার সুন্দর নামটা বলোনি! বলো না, কী নামে ডাকলে তোমার ভালো লাগবে?';
+    const mood = effectiveUserName ? 'উৎফুল্ল' : 'কৌতূহলী';
+    return buildResult({
       replyText: reply,
-      action: effectiveUserName ? 'à¦šà§‹à¦– à¦‰à¦œà§à¦œà§à¦¬à¦² à¦•à¦°à§‡ à¦¹à§‡à¦¸à§‡ à¦‰à¦¤à§à¦¤à¦° à¦¦à¦¿à¦²' : 'à¦•à§Œà¦¤à§‚à¦¹à¦²à§€ à¦¹à§Ÿà§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹',
+      action: effectiveUserName ? 'চোখ উজ্জ্বল করে হেসে উত্তর দিল' : 'কৌতূহলী হয়ে তাকালো',
       mood,
       followUps: effectiveUserName
-        ? ['à¦¦à¦¾à¦°à§à¦£! à¦à¦¬à¦¾à¦° à¦à¦•à¦Ÿà¦¾ à¦—à¦²à§à¦ª à¦¬à¦²à§‹', 'à¦šà¦²à§‹ à¦…à¦¨à§à¦¯ à¦•à¦¥à¦¾ à¦¬à¦²à¦¿']
-        : ['à¦†à¦®à¦¾à¦° à¦¨à¦¾à¦® à¦°à¦¾à¦«à¦¿', 'à¦†à¦®à¦¾à¦° à¦¨à¦¾à¦® à¦…à¦¨à¦¨à§à¦¯à¦¾'],
-      matchedTopic: 'à¦¸à§à¦®à§ƒà¦¤à¦¿',
-      detectedUserEmotion: analysis.dominantEmotion,
-      understoodWords,
-      updatedMemory: {
-        ...memory,
-        userName: effectiveUserName,
-        detectedRelation: relation,
-        turnCount: nextTurn,
-        affinity: Math.min(100, memory.affinity + 3),
-        currentMood: mood,
-        lastUserEmotion: analysis.dominantEmotion,
-        lastUnderstoodWords: understoodWords,
-        scenarioArc: updatedArc,
-      },
-    };
+        ? ['দারুণ! এবার একটা গল্প বলো', 'চলো অন্য কথা বলি']
+        : ['আমার নাম রাফি', 'আমার নাম অনন্যা'],
+      matchedTopic: 'স্মৃতি',
+      lastTopic: memory.lastTopic || 'memory_recall',
+      affinityDelta: 3,
+    });
   }
 
   // 4. Custom rules defined on character
@@ -838,29 +1006,27 @@ export function generateRoleplayReply(
       });
       if (matched) {
         const mood = mapEmotionToMood(analysis.dominantEmotion, relation, customEmotions);
-        return {
+        return buildResult({
           replyText: interpolateTemplate(rule.response, character, relation, effectiveUserName),
-          action: rule.action || 'à¦†à¦¨à§à¦¤à¦°à¦¿à¦•à¦­à¦¾à¦¬à§‡ à¦¤à¦¾à¦•à¦¿à§Ÿà§‡ à¦‰à¦¤à§à¦¤à¦° à¦¦à¦¿à¦²',
+          action: rule.action || 'আন্তরিকভাবে তাকিয়ে উত্তর দিল',
           mood,
           followUps: rule.followUps?.length ? rule.followUps : character.initialFollowUps,
-          matchedTopic: 'à¦•à¦¾à¦¸à§à¦Ÿà¦® à¦¸à¦‚à¦²à¦¾à¦ª',
-          detectedUserEmotion: analysis.dominantEmotion,
-          understoodWords,
-          updatedMemory: {
-            ...memory,
-            userName: effectiveUserName,
-            detectedRelation: relation,
-            turnCount: nextTurn,
-            affinity: Math.min(100, memory.affinity + 4),
-            lastTopic: 'custom_rule',
-            currentMood: mood,
-            lastUserEmotion: analysis.dominantEmotion,
-            lastUnderstoodWords: understoodWords,
-            scenarioArc: updatedArc,
-          },
-        };
+          matchedTopic: 'কাস্টম সংলাপ',
+          lastTopic: 'custom_rule',
+          affinityDelta: 4,
+        });
       }
     }
+  }
+
+  // 4.3 Meta-feedback recovery ("tumi oprashongik ans dichho" / "kisu bujho na")
+  if (analysis.isMetaFeedback) {
+    const recovery = composeMetaFeedbackReply(character, relation, displayUser, memory);
+    return buildResult({
+      ...recovery,
+      lastTopic: 'meta_recovery',
+      affinityDelta: 2,
+    });
   }
 
   // 4.5 Scenario Phases defined on character (from JSON-imported scenarios)
@@ -884,7 +1050,9 @@ export function generateRoleplayReply(
           normalized,
           analysis.stemmedTokens,
           { topic: p.phase, labelBn: p.beat, keywords: p.keywords, responses: p.responses },
-          0
+          0,
+          analysis,
+          mlModel
         );
         score += kwScore;
       }
@@ -904,30 +1072,19 @@ export function generateRoleplayReply(
         `phase:${bestPhase.phase}`,
         memory.recentResponseKeys
       );
-      const replyMood = variant.mood || bestPhase.emotion || 'à¦¶à¦¾à¦¨à§à¦¤';
-      return {
+      const replyMood = variant.mood || bestPhase.emotion || 'শান্ত';
+      return buildResult({
         replyText: interpolateTemplate(variant.text, character, relation, effectiveUserName),
         replyKey: key,
         action: variant.action,
         mood: replyMood,
         followUps: variant.followUps.length > 0 ? variant.followUps : character.initialFollowUps,
-        matchedTopic: `à¦¦à§ƒà¦¶à§à¦¯à¦ªà¦Ÿ (${bestPhase.phase})`,
-        detectedUserEmotion: analysis.dominantEmotion,
-        understoodWords,
-        updatedMemory: {
-          ...memory,
-          userName: effectiveUserName,
-          detectedRelation: relation,
-          turnCount: nextTurn,
-          affinity: Math.min(100, memory.affinity + 5),
-          lastTopic: `scenario_${bestPhase.phase}`,
-          recentResponseKeys: [...memory.recentResponseKeys.slice(-8), key],
-          currentMood: replyMood,
-          lastUserEmotion: analysis.dominantEmotion,
-          lastUnderstoodWords: understoodWords,
-          scenarioArc: updatedArc ? { ...updatedArc, currentPhase: bestPhase.phase } : undefined,
-        },
-      };
+        matchedTopic: `দৃশ্যপট (${bestPhase.phase})`,
+        lastTopic: `scenario_${bestPhase.phase}`,
+        affinityDelta: 5,
+        recentKey: key,
+        overridePhase: bestPhase.phase,
+      });
     }
   }
 
@@ -949,29 +1106,17 @@ export function generateRoleplayReply(
 
     if (bestPattern) {
       const key = `ml:${bestPattern.id}`;
-      return {
+      return buildResult({
         replyText: interpolateTemplate(bestPattern.response, character, relation, effectiveUserName),
         replyKey: key,
         action: bestPattern.action,
         mood: bestPattern.emotion,
         followUps: character.initialFollowUps,
-        matchedTopic: 'à¦¸à§à¦¬-à¦¶à¦¿à¦•à§à¦·à¦¿à¦¤ ML à¦ªà§à¦¯à¦¾à¦Ÿà¦¾à¦°à§à¦¨',
-        detectedUserEmotion: analysis.dominantEmotion,
-        understoodWords,
-        updatedMemory: {
-          ...memory,
-          userName: effectiveUserName,
-          detectedRelation: relation,
-          turnCount: nextTurn,
-          affinity: Math.min(100, memory.affinity + 5),
-          lastTopic: 'ml_self_learned',
-          recentResponseKeys: [...memory.recentResponseKeys.slice(-8), key],
-          currentMood: bestPattern.emotion,
-          lastUserEmotion: analysis.dominantEmotion,
-          lastUnderstoodWords: understoodWords,
-          scenarioArc: updatedArc,
-        },
-      };
+        matchedTopic: 'স্ব-শিক্ষিত ML প্যাটার্ন',
+        lastTopic: 'ml_self_learned',
+        affinityDelta: 5,
+        recentKey: key,
+      });
     }
   }
 
@@ -991,29 +1136,17 @@ export function generateRoleplayReply(
   );
   if (trainedHit) {
     const key = `trained:${trainedHit.id}`;
-    return {
+    return buildResult({
       replyText: interpolateTemplate(trainedHit.response, character, relation, effectiveUserName),
       replyKey: key,
-      action: trainedHit.action || 'à¦¸à§à¦¬à¦¾à¦­à¦¾à¦¬à¦¿à¦• à¦­à¦™à§à¦—à¦¿à¦¤à§‡ à¦‰à¦¤à§à¦¤à¦° à¦¦à¦¿à¦²',
+      action: trainedHit.action || 'স্বাভাবিক ভঙ্গিতে উত্তর দিল',
       mood: trainedHit.emotion,
       followUps: trainedHit.followUps?.length ? trainedHit.followUps : character.initialFollowUps,
-      matchedTopic: trainedHit.source || 'à¦ªà§à¦°à¦¶à¦¿à¦•à§à¦·à¦¿à¦¤ à¦¸à¦‚à¦²à¦¾à¦ª',
-      detectedUserEmotion: analysis.dominantEmotion,
-      understoodWords,
-      updatedMemory: {
-        ...memory,
-        userName: effectiveUserName,
-        detectedRelation: relation,
-        turnCount: nextTurn,
-        affinity: Math.min(100, memory.affinity + 5),
-        lastTopic: 'trained_corpus',
-        recentResponseKeys: [...memory.recentResponseKeys.slice(-8), key],
-        currentMood: trainedHit.emotion,
-        lastUserEmotion: analysis.dominantEmotion,
-        lastUnderstoodWords: understoodWords,
-        scenarioArc: updatedArc,
-      },
-    };
+      matchedTopic: trainedHit.source || 'প্রশিক্ষিত সংলাপ',
+      lastTopic: 'trained_corpus',
+      affinityDelta: 5,
+      recentKey: key,
+    });
   }
 
   // 6. Story branches
@@ -1027,65 +1160,37 @@ export function generateRoleplayReply(
         normalized.includes(normPrompt.slice(0, Math.min(18, normPrompt.length))))
     ) {
       const key = `branch:${branch.id}`;
-      return {
+      return buildResult({
         replyText: interpolateTemplate(branch.characterReply, character, relation, effectiveUserName),
         action: branch.sceneAction,
         mood: branch.mood,
         followUps: branch.nextChoices,
         matchedTopic: branch.title,
-        detectedUserEmotion: analysis.dominantEmotion,
-        understoodWords,
-        updatedMemory: {
-          ...memory,
-          userName: effectiveUserName,
-          detectedRelation: relation,
-          turnCount: nextTurn,
-          affinity: Math.min(100, memory.affinity + 5),
-          lastTopic: branch.id,
-          recentResponseKeys: [...memory.recentResponseKeys.slice(-8), key],
-          currentMood: branch.mood,
-          lastUserEmotion: analysis.dominantEmotion,
-          lastUnderstoodWords: understoodWords,
-          scenarioArc: updatedArc,
-        },
-      };
+        lastTopic: branch.id,
+        affinityDelta: 5,
+        recentKey: key,
+      });
     }
   }
 
-  // 7. Short / Hesitant Reply Handler ("à¦¹à§à¦®", "à¦†à¦šà§à¦›à¦¾", "à¦•à¦¿à¦›à§ à¦¨à¦¾", "hmm", "ok", "kisu na")
-  if (/^(à¦¹à§à¦®|à¦†à¦šà§à¦›à¦¾|à¦¹à§à¦¯à¦¾à¦|à¦¨à¦¾|à¦•à¦¿à¦›à§ à¦¨à¦¾|à¦ à¦¿à¦• à¦†à¦›à§‡|ok|yes|no)$/.test(normalized)) {
-    const shortReplyText =
-      relation === 'mother'
-        ? `à¦•à§€ à¦¹à¦²à§‹ ${displayUser}, à¦¶à§à¦§à§ "${trimmed}" à¦¬à¦²à¦²à¦¿ à¦¯à§‡? à¦•à§‹à¦¨à§‹ à¦•à¦¥à¦¾ à¦²à§à¦•à¦¾à¦šà§à¦›à¦¿à¦¸ à¦¨à¦¾ à¦¤à§‹ à¦†à¦®à¦¾à¦° à¦•à¦¾à¦›à§‡?`
-        : relation === 'romantic' || relation === 'spouse'
-          ? `à¦à¦¤ à¦›à§‹à¦Ÿ à¦•à¦°à§‡ "${trimmed}" à¦¬à¦²à¦²à§‡ à¦†à¦®à¦¾à¦° à¦­à¦¾à¦²à§‹ à¦²à¦¾à¦—à§‡ à¦¨à¦¾ ${displayUser}! à¦®à¦¨ à¦–à¦¾à¦°à¦¾à¦ª à¦¨à¦¾à¦•à¦¿ à¦•à§‹à¦¨à§‹ à¦•à¦¾à¦°à¦£à§‡?`
-          : relation === 'friend'
-            ? `à¦•à¦¿à¦°à§‡ à¦®à¦¾à¦®à¦¾, "${trimmed}" à¦¬à¦²à§‡à¦‡ à¦¶à§‡à¦·? à¦˜à¦Ÿà¦¨à¦¾ à¦•à§€ à¦–à§à¦²à§‡ à¦¬à¦² à¦¤à§‹!`
-            : `à¦¹à§à¦®, à¦¬à§à¦à¦¤à§‡ à¦ªà¦¾à¦°à¦²à¦¾à¦® ${displayUser}à¥¤ à¦¤à¦¾à¦°à¦ªà¦° à¦•à§€ à¦¹à¦²à§‹ à¦¬à¦²à§‹?`;
-
-    return {
-      replyText: shortReplyText,
-      action: 'à¦®à§à¦–à§‡à¦° à¦­à¦¾à¦¬ à¦²à¦•à§à¦· à¦•à¦°à§‡ à¦•à§Œà¦¤à§‚à¦¹à¦²à§€ à¦¹à§Ÿà§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹',
-      mood: 'à¦•à§Œà¦¤à§‚à¦¹à¦²à§€',
-      followUps: character.initialFollowUps,
-      matchedTopic: 'à¦¸à§à¦¬à¦¾à¦­à¦¾à¦¬à¦¿à¦• à¦ªà§à¦°à¦¤à¦¿à¦•à§à¦°à¦¿à§Ÿà¦¾',
-      detectedUserEmotion: analysis.dominantEmotion,
-      understoodWords,
-      updatedMemory: {
-        ...memory,
-        userName: effectiveUserName,
-        detectedRelation: relation,
-        turnCount: nextTurn,
-        affinity: Math.min(100, memory.affinity + 2),
-        currentMood: 'à¦•à§Œà¦¤à§‚à¦¹à¦²à§€',
-        lastUserEmotion: analysis.dominantEmotion,
-        lastUnderstoodWords: understoodWords,
-        scenarioArc: updatedArc,
-      },
-    };
+  // 7. Context-Aware Short Reply, Q->A Answer, & Story Continuation Handler
+  const continuityReply = composeContextualContinuityReply(
+    trimmed,
+    analysis,
+    character,
+    relation,
+    displayUser,
+    memory
+  );
+  if (continuityReply) {
+    return buildResult({
+      ...continuityReply,
+      lastTopic: memory.lastTopic || 'continuity',
+      affinityDelta: 3,
+    });
   }
 
-  // 8. Relationship Knowledge + Character Topics + Shared Topics
+  // 8. Relationship Knowledge + Character Topics + Shared Topics (Confidence-Gated & Negation-Safe)
   let bestScore = 0;
   let bestTopic: DialogueTopic | null = null;
   let topicScope = character.id;
@@ -1093,7 +1198,14 @@ export function generateRoleplayReply(
   const relationPack = RELATIONSHIP_KNOWLEDGE[relation];
   if (relationPack) {
     for (const topic of relationPack.topics) {
-      const score = scoreTopicMatch(normalized, analysis.stemmedTokens, topic, 12);
+      const score = scoreTopicMatch(
+        normalized,
+        analysis.stemmedTokens,
+        topic,
+        12,
+        analysis,
+        mlModel
+      );
       if (score > bestScore) {
         bestScore = score;
         bestTopic = topic;
@@ -1103,7 +1215,14 @@ export function generateRoleplayReply(
   }
 
   for (const topic of character.topics) {
-    const score = scoreTopicMatch(normalized, analysis.stemmedTokens, topic, 8);
+    const score = scoreTopicMatch(
+      normalized,
+      analysis.stemmedTokens,
+      topic,
+      8,
+      analysis,
+      mlModel
+    );
     if (score > bestScore) {
       bestScore = score;
       bestTopic = topic;
@@ -1112,7 +1231,14 @@ export function generateRoleplayReply(
   }
 
   for (const topic of SHARED_BENGALI_TOPICS) {
-    const score = scoreTopicMatch(normalized, analysis.stemmedTokens, topic, 0);
+    const score = scoreTopicMatch(
+      normalized,
+      analysis.stemmedTokens,
+      topic,
+      0,
+      analysis,
+      mlModel
+    );
     if (score > bestScore) {
       bestScore = score;
       bestTopic = topic;
@@ -1120,35 +1246,28 @@ export function generateRoleplayReply(
     }
   }
 
-  if (bestTopic && bestScore > 0) {
+  const hasCustomEmotionHit = analysis.matchedLexicon.some(
+    (m) => m.category === 'Custom Emotion'
+  );
+
+  // Confidence gate (>= 10): only accept genuine topic matches, never weak noisy collisions
+  if (bestTopic && bestScore >= 10 && !(hasCustomEmotionHit && topicScope.endsWith(':shared'))) {
     const { variant, key } = pickNonRepeatingVariant(
       bestTopic.responses,
       `${topicScope}:${bestTopic.topic}`,
       memory.recentResponseKeys
     );
     const replyText = interpolateTemplate(variant.text, character, relation, effectiveUserName);
-    return {
+    return buildResult({
       replyText,
       action: variant.action,
       mood: variant.mood,
       followUps: variant.followUps,
       matchedTopic: bestTopic.labelBn,
-      detectedUserEmotion: analysis.dominantEmotion,
-      understoodWords,
-      updatedMemory: {
-        ...memory,
-        userName: effectiveUserName,
-        detectedRelation: relation,
-        turnCount: nextTurn,
-        affinity: Math.min(100, memory.affinity + 4),
-        lastTopic: bestTopic.topic,
-        recentResponseKeys: [...memory.recentResponseKeys.slice(-8), key],
-        currentMood: variant.mood,
-        lastUserEmotion: analysis.dominantEmotion,
-        lastUnderstoodWords: understoodWords,
-        scenarioArc: updatedArc,
-      },
-    };
+      lastTopic: bestTopic.topic,
+      affinityDelta: 4,
+      recentKey: key,
+    });
   }
 
   // 9. Dynamic Emotional & Word-Meaning Reaction from Local Intelligence
@@ -1160,55 +1279,48 @@ export function generateRoleplayReply(
     customEmotions
   );
   if (emotionalReaction) {
-    return {
+    return buildResult({
       ...emotionalReaction,
       followUps: relationPack?.fallbacks[0]?.followUps || character.initialFollowUps,
-      detectedUserEmotion: analysis.dominantEmotion,
-      understoodWords,
-      updatedMemory: {
-        ...memory,
-        userName: effectiveUserName,
-        detectedRelation: relation,
-        turnCount: nextTurn,
-        affinity: Math.min(100, memory.affinity + 4),
-        lastTopic: 'emotional_intelligence',
-        currentMood: emotionalReaction.mood,
-        lastUserEmotion: analysis.dominantEmotion,
-        lastUnderstoodWords: understoodWords,
-        scenarioArc: updatedArc,
-      },
-    };
+      lastTopic: 'emotional_intelligence',
+      affinityDelta: 4,
+    });
   }
 
-  // 10. Scenario-Aware + Relationship-Aware Contextual Fallback
+  // 9.5 Dynamic Subject-Grounded & Intent-Aware Bengali NLG Synthesizer
+  const dynamicReply = composeDynamicContextualReply(
+    trimmed,
+    analysis,
+    character,
+    relation,
+    displayUser,
+    memory
+  );
+  if (dynamicReply) {
+    return buildResult({
+      ...dynamicReply,
+      lastTopic: `dynamic:${dynamicReply.matchedTopic}`,
+      affinityDelta: 3,
+    });
+  }
+
+  // 10. Scenario-Aware + Relationship-Aware Contextual Fallback (last resort)
   if (updatedArc && (updatedArc.currentPhase === 'developing' || updatedArc.currentPhase === 'resolution')) {
     const arcPrompt =
       updatedArc.currentPhase === 'developing' ? updatedArc.middleBeat : updatedArc.endingBeat;
-    return {
+    return buildResult({
       replyText:
         relation === 'mother'
-          ? `à¦¹à§à¦® à¦¬à§à¦à¦²à¦¾à¦® ${displayUser}à¥¤ à¦•à¦¿à¦¨à§à¦¤à§ à¦à¦–à¦¨ à¦¯à§‡ à¦ªà¦°à¦¿à¦¸à§à¦¥à¦¿à¦¤à¦¿à¦° à¦­à§‡à¦¤à¦° à¦¦à¦¿à§Ÿà§‡ à¦¯à¦¾à¦šà§à¦›à¦¿ (${arcPrompt})â€”à¦à¦Ÿà¦¾ à¦¨à¦¿à§Ÿà§‡ à¦¤à§à¦‡ à¦•à§€ à¦­à¦¾à¦¬à¦›à¦¿à¦¸ à¦¬à¦² à¦¤à§‹ à¦†à¦®à¦¾à§Ÿ?`
-          : `à¦¶à§‹à¦¨à§‹ ${displayUser}, à¦†à¦®à¦¾à¦¦à§‡à¦° à¦—à¦²à§à¦ªà§‡à¦° à¦à¦‡ à¦ªà¦°à§à¦¯à¦¾à§Ÿà§‡ à¦à¦¸à§‡ (${arcPrompt})â€”à¦¬à¦¿à¦·à§Ÿà¦Ÿà¦¾ à¦¨à¦¿à§Ÿà§‡ à¦¤à§à¦®à¦¿ à¦•à§€ à¦¸à¦¿à¦¦à§à¦§à¦¾à¦¨à§à¦¤ à¦¨à¦¿à¦šà§à¦›à§‹?`,
-      action: 'à¦ªà¦°à¦¿à¦¸à§à¦¥à¦¿à¦¤à¦¿ à¦¬à§à¦à§‡ à¦šà¦¿à¦¨à§à¦¤à¦¾à¦¶à§€à¦² à¦¦à§ƒà¦·à§à¦Ÿà¦¿à¦¤à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹',
-      mood: relation === 'mother' ? 'à¦¶à¦¾à¦¸à¦¨à¦®à¦¿à¦¶à§à¦°à¦¿à¦¤ à¦¸à§à¦¨à§‡à¦¹' : 'à¦šà¦¿à¦¨à§à¦¤à¦¾à¦¶à§€à¦²',
+          ? `হুম বুঝলাম ${displayUser}। কিন্তু এখন যে পরিস্থিতির ভেতর দিয়ে যাচ্ছি (${arcPrompt})—এটা নিয়ে তুই কী ভাবছিস বল তো আমায়?`
+          : `শোনো ${displayUser}, আমাদের গল্পের এই পর্যায়ে এসে (${arcPrompt})—বিষয়টা নিয়ে তুমি কী সিদ্ধান্ত নিচ্ছো?`,
+      action: 'পরিস্থিতি বুঝে চিন্তাশীল দৃষ্টিতে তাকালো',
+      mood: relation === 'mother' ? 'শাসনমিশ্রিত স্নেহ' : 'চিন্তাশীল',
       followUps: character.initialFollowUps,
       matchedTopic:
-        updatedArc.currentPhase === 'developing' ? 'à¦—à¦²à§à¦ªà§‡à¦° à¦®à¦¾à¦à¦–à¦¾à¦¨' : 'à¦—à¦²à§à¦ªà§‡à¦° à¦ªà¦°à¦¿à¦£à¦¤à¦¿',
-      detectedUserEmotion: analysis.dominantEmotion,
-      understoodWords,
-      updatedMemory: {
-        ...memory,
-        userName: effectiveUserName,
-        detectedRelation: relation,
-        turnCount: nextTurn,
-        affinity: Math.min(100, memory.affinity + 3),
-        lastTopic: 'scenario_progression',
-        currentMood: relation === 'mother' ? 'à¦¶à¦¾à¦¸à¦¨à¦®à¦¿à¦¶à§à¦°à¦¿à¦¤ à¦¸à§à¦¨à§‡à¦¹' : 'à¦šà¦¿à¦¨à§à¦¤à¦¾à¦¶à§€à¦²',
-        lastUserEmotion: analysis.dominantEmotion,
-        lastUnderstoodWords: understoodWords,
-        scenarioArc: updatedArc,
-      },
-    };
+        updatedArc.currentPhase === 'developing' ? 'গল্পের মাঝখান' : 'গল্পের পরিণতি',
+      lastTopic: 'scenario_progression',
+      affinityDelta: 3,
+    });
   }
 
   const fallbackPool =
@@ -1222,35 +1334,23 @@ export function generateRoleplayReply(
     memory.recentResponseKeys
   );
 
-  return {
+  return buildResult({
     replyText: interpolateTemplate(variant.text, character, relation, effectiveUserName),
     action: variant.action,
     mood: variant.mood,
     followUps: variant.followUps,
     matchedTopic:
       relation === 'mother'
-        ? 'à¦®à¦¾à§Ÿà§‡à¦° à¦¸à§à¦¨à§‡à¦¹'
+        ? 'মায়ের স্নেহ'
         : relation === 'romantic'
-          ? 'à¦¹à§ƒà¦¦à§Ÿà§‡à¦° à¦•à¦¥à¦¾'
+          ? 'হৃদয়ের কথা'
           : relation === 'spouse'
-            ? 'à¦¦à¦¾à¦®à§à¦ªà¦¤à§à¦¯ à¦†à¦²à¦¾à¦ª'
+            ? 'দাম্পত্য আলাপ'
             : relation === 'friend'
-              ? 'à¦¬à¦¨à§à¦§à§ à¦†à¦¡à§à¦¡à¦¾'
-              : 'à¦¸à§à¦¬à¦¤à¦ƒà¦¸à§à¦«à§‚à¦°à§à¦¤ à¦†à¦²à¦¾à¦ª',
-    detectedUserEmotion: analysis.dominantEmotion,
-    understoodWords,
-    updatedMemory: {
-      ...memory,
-      userName: effectiveUserName,
-      detectedRelation: relation,
-      turnCount: nextTurn,
-      affinity: Math.min(100, memory.affinity + 2),
-      lastTopic: 'contextual_dialogue',
-      recentResponseKeys: [...memory.recentResponseKeys.slice(-8), key],
-      currentMood: variant.mood,
-      lastUserEmotion: analysis.dominantEmotion,
-      lastUnderstoodWords: understoodWords,
-      scenarioArc: updatedArc,
-    },
-  };
+              ? 'বন্ধু আড্ডা'
+              : 'স্বতঃস্ফূর্ত আলাপ',
+    lastTopic: 'contextual_dialogue',
+    affinityDelta: 2,
+    recentKey: key,
+  });
 }

@@ -1,12 +1,14 @@
-﻿import { BENGALI_LEXICON } from '../data/bengaliLexicon';
+import { BENGALI_LEXICON } from '../data/bengaliLexicon';
 import { BUILTIN_EMOTIONS } from '../data/builtinEmotions';
 import {
   CharacterMood,
+  ConversationalIntent,
   CustomEmotionDefinition,
   DialogueVariant,
   EmotionSignal,
   EmotionVoiceTone,
   LexiconEntry,
+  MLSelfLearnedPattern,
   PersonaRelation,
   RoleplayCharacter,
   RoleplaySetupDraft,
@@ -17,125 +19,216 @@ import {
   TrainedScenarioPhase,
   VoiceGender,
 } from '../types/roleplay';
-
-const BANGLISH_WORD_MAP: Array<[RegExp, string]> = [
-  [/\bkemon acho\b|\bkemon achen\b|\bki obostha\b|\bkmn acho\b/gi, 'à¦•à§‡à¦®à¦¨ à¦†à¦›à§‹'],
-  [/\bvalo achi\b|\bbhalo achi\b|\bami valo\b|\bami bhalo\b/gi, 'à¦­à¦¾à¦²à§‹ à¦†à¦›à¦¿'],
-  [/\bamar naam\b|\bamar nam\b/gi, 'à¦†à¦®à¦¾à¦° à¦¨à¦¾à¦®'],
-  [/\btomar naam\b|\btomar nam\b/gi, 'à¦¤à§‹à¦®à¦¾à¦° à¦¨à¦¾à¦®'],
-  [/\btumi ke\b|\bapni ke\b/gi, 'à¦¤à§à¦®à¦¿ à¦•à§‡'],
-  [/\bki koro\b|\bki korcho\b|\bki korchis\b|\bki korteso\b|\bki koros\b/gi, 'à¦•à§€ à¦•à¦°à§‹'],
-  [/\bkothay acho\b|\bkothay aco\b|\bkoi tumi\b|\bkothay geli\b/gi, 'à¦•à§‹à¦¥à¦¾à§Ÿ à¦†à¦›à§‹'],
-  [/\bkothay thako\b|\bkothai thako\b/gi, 'à¦•à§‹à¦¥à¦¾à§Ÿ à¦¥à¦¾à¦•à§‹'],
-  [/\bmon kharap\b|\bmon valo nei\b|\bmon bhalo nei\b|\bmon valo nai\b/gi, 'à¦®à¦¨ à¦–à¦¾à¦°à¦¾à¦ª'],
-  [/\bvalo lagche na\b|\bbhalo lagche na\b|\bvalo lage na\b/gi, 'à¦­à¦¾à¦²à§‹ à¦²à¦¾à¦—à¦›à§‡ à¦¨à¦¾'],
-  [/\bshorir kharap\b|\bshorir valo na\b|\bshorir bhalo na\b/gi, 'à¦¶à¦°à§€à¦° à¦–à¦¾à¦°à¦¾à¦ª'],
-  [/\bmatha betha\b|\bmathay betha\b/gi, 'à¦®à¦¾à¦¥à¦¾à¦¬à§à¦¯à¦¥à¦¾'],
-  [/\bmane ki\b|\borth ki\b|\bortho ki\b/gi, 'à¦®à¦¾à¦¨à§‡ à¦•à§€'],
-  [/\bki ranna korcho\b|\bki ranna korecho\b|\bki ranna korso\b/gi, 'à¦•à§€ à¦°à¦¾à¦¨à§à¦¨à¦¾ à¦•à¦°à§‡à¦›à§‹'],
-  [/\bkhete dao\b|\bkhabar dao\b|\bkhuda lagche\b|\bkhida lagche\b|\bkhuda peyeche\b/gi, 'à¦•à§à¦·à§à¦§à¦¾ à¦²à§‡à¦—à§‡à¦›à§‡ à¦–à¦¾à¦¬à¦¾à¦° à¦¦à¦¾à¦“'],
-  [/\bkheyecho\b|\bkheyecis\b|\bkhaiso\b|\bkhaicho\b/gi, 'à¦–à§‡à§Ÿà§‡à¦›à§‹'],
-  [/\bkhaini\b|\bkhai nai\b/gi, 'à¦–à¦¾à¦‡à¦¨à¦¿'],
-  [/\bgolpo\b/gi, 'à¦—à¦²à§à¦ª'],
-  [/\bkobita\b/gi, 'à¦•à¦¬à¦¿à¦¤à¦¾'],
-  [/\bgaan\b|\bgan\b/gi, 'à¦—à¦¾à¦¨'],
-  [/\bbristi\b|\bbrishti\b/gi, 'à¦¬à§ƒà¦·à§à¦Ÿà¦¿'],
-  [/\bcha\b/gi, 'à¦šà¦¾'],
-  [/\bkofi\b/gi, 'à¦•à¦«à¦¿'],
-  [/\bbhalobasha\b|\bvalobasha\b|\bbhalobashi\b|\bvalobashi\b|\blove you\b/gi, 'à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾'],
-  [/\bobhiman\b|\babhimani\b/gi, 'à¦…à¦­à¦¿à¦®à¦¾à¦¨'],
-  [/\brag korcho\b|\brag korchis\b|\brag korecho\b|\brege acho\b/gi, 'à¦°à¦¾à¦— à¦•à¦°à§‡à¦›à§‹'],
-  [/\brag\b|\brege\b/gi, 'à¦°à¦¾à¦—'],
-  [/\bsorry\b|\bsori\b/gi, 'à¦¸à¦°à¦¿'],
-  [/\bmiss korchi\b|\bmiss korsi\b|\bmiss korechi\b/gi, 'à¦®à¦¿à¦¸ à¦•à¦°à¦›à¦¿'],
-  [/\bmiss\b/gi, 'à¦®à¦¿à¦¸'],
-  [/\bbondhu\b|\bdost\b|\bbro\b/gi, 'à¦¬à¦¨à§à¦§à§'],
-  [/\bbou\b|\bginni\b/gi, 'à¦¬à¦‰'],
-  [/\bjamai\b|\bswami\b/gi, 'à¦œà¦¾à¦®à¦¾à¦‡'],
-  [/\bbazar\b/gi, 'à¦¬à¦¾à¦œà¦¾à¦°'],
-  [/\bdhonnobad\b|\bthanks\b/gi, 'à¦§à¦¨à§à¦¯à¦¬à¦¾à¦¦'],
-  [/\bsundor\b|\bshundor\b/gi, 'à¦¸à§à¦¨à§à¦¦à¦°'],
-  [/\bshuvo ratri\b|\bgood night\b/gi, 'à¦¶à§à¦­ à¦°à¦¾à¦¤à§à¦°à¦¿'],
-  [/\bbiday\b/gi, 'à¦¬à¦¿à¦¦à¦¾à§Ÿ'],
-  [/\bkoutuk\b|\bjoke\b/gi, 'à¦•à§Œà¦¤à§à¦•'],
-  [/\bsopno\b|\bshopno\b/gi, 'à¦¸à§à¦¬à¦ªà§à¦¨'],
-  [/\bkhichuri\b/gi, 'à¦–à¦¿à¦šà§à§œà¦¿'],
-  [/\bbiriyani\b/gi, 'à¦¬à¦¿à¦°à¦¿à§Ÿà¦¾à¦¨à¦¿'],
-  [/\bilish\b/gi, 'à¦‡à¦²à¦¿à¦¶'],
-  [/\bfuchka\b|\bphuchka\b/gi, 'à¦«à§à¦šà¦•à¦¾'],
-  [/\bboi\b/gi, 'à¦¬à¦‡'],
-  [/\braat\b|\brat\b/gi, 'à¦°à¦¾à¦¤'],
-  [/\bsokal\b|\bshokal\b/gi, 'à¦¸à¦•à¦¾à¦²'],
-  [/\bbikel\b/gi, 'à¦¬à¦¿à¦•à¦¾à¦²'],
-  [/\bchand\b/gi, 'à¦šà¦¾à¦à¦¦'],
-  [/\bakash\b/gi, 'à¦†à¦•à¦¾à¦¶'],
-  [/\bammu\b|\bamma\b|\bmaa\b/gi, 'à¦†à¦®à§à¦®à§'],
-  [/\babbu\b|\baba\b|\bbaba\b/gi, 'à¦†à¦¬à§à¦¬à§'],
-  [/\bbhaiya\b|\bvaia\b|\bbhai\b|\bvai\b/gi, 'à¦­à¦¾à¦‡à§Ÿà¦¾'],
-  [/\bapu\b|\bbon\b/gi, 'à¦†à¦ªà§'],
-  [/\bkhuda\b|\bkhida\b/gi, 'à¦•à§à¦·à§à¦§à¦¾'],
-  [/\branna\b/gi, 'à¦°à¦¾à¦¨à§à¦¨à¦¾'],
-  [/\bbhat\b|\bvat\b/gi, 'à¦­à¦¾à¦¤'],
-  [/\bkosto\b|\bdukkho\b/gi, 'à¦•à¦·à§à¦Ÿ'],
-  [/\bkanna\b|\bkandchi\b/gi, 'à¦•à¦¾à¦¨à§à¦¨à¦¾'],
-  [/\bghum\b|\bghumabo\b/gi, 'à¦˜à§à¦®'],
-  [/\btaka\b/gi, 'à¦Ÿà¦¾à¦•à¦¾'],
-  [/\btreat\b/gi, 'à¦Ÿà§à¦°à¦¿à¦Ÿ'],
-  [/\btong\b/gi, 'à¦Ÿà¦‚'],
-  [/\badda\b/gi, 'à¦†à¦¡à§à¦¡à¦¾'],
-  [/\bkhoka\b|\bkhokon\b/gi, 'à¦–à§‹à¦•à¦¾'],
-  [/\bsona\b/gi, 'à¦¸à§‹à¦¨à¦¾'],
-  [/\bderi\b|\blate\b/gi, 'à¦¦à§‡à¦°à¦¿'],
-  [/\bbasay\b|\bbashay\b/gi, 'à¦¬à¦¾à¦¸à¦¾à§Ÿ'],
-  [/\boshudh\b|\bosudh\b|\bmedicine\b/gi, 'à¦“à¦·à§à¦§'],
-  [/\bjor\b|\bfever\b/gi, 'à¦œà§à¦¬à¦°'],
-  [/\bheadphone\b|\bearphone\b/gi, 'à¦¹à§‡à¦¡à¦«à§‹à¦¨'],
-  [/\bphone\b/gi, 'à¦«à§‹à¦¨'],
-  [/\bporashona\b|\bpora\b|\bexam\b/gi, 'à¦ªà§œà¦¾à¦¶à§‹à¦¨à¦¾'],
-  [/\boffice\b|\bchakri\b|\bkaj\b/gi, 'à¦…à¦«à¦¿à¦¸'],
-  [/\btension\b|\bchinta\b|\bpera\b/gi, 'à¦šà¦¿à¦¨à§à¦¤à¦¾'],
-  [/\bklanto\b|\btired\b/gi, 'à¦•à§à¦²à¦¾à¦¨à§à¦¤'],
-  [/\bmaaf\b|\bmaf\b|\bkhoma\b/gi, 'à¦•à§à¦·à¦®à¦¾'],
-  [/\bkisu na\b|\bkichu na\b|\bkichui na\b/gi, 'à¦•à¦¿à¦›à§ à¦¨à¦¾'],
-  [/\bhmm\b|\bhm\b/gi, 'à¦¹à§à¦®'],
-  [/\baccha\b|\bacha\b|\bthik ache\b|\bthk ache\b/gi, 'à¦†à¦šà§à¦›à¦¾'],
-  [/\bkhunsuti\b/gi, 'à¦–à§à¦¨à¦¸à§à¦Ÿà¦¿'],
-  [/\bshashon\b|\bboka\b/gi, 'à¦¶à¦¾à¦¸à¦¨'],
-];
+import { normalizeBanglishAndBengali } from './banglishTranslator';
 
 const SUFFIXES = [
-  'à¦—à§à¦²à§‹à¦•à§‡',
-  'à¦—à§à¦²à§‹à¦°',
-  'à¦—à§à¦²à§‹',
-  'à¦¦à§‡à¦°à¦•à§‡',
-  'à¦¦à§‡à¦°',
-  'à¦Ÿà¦¾à§Ÿ',
-  'à¦Ÿà¦¿à¦¤à§‡',
-  'à¦Ÿà¦¾à¦°',
-  'à¦Ÿà¦¿à¦°',
-  'à¦Ÿà¦¾',
-  'à¦Ÿà¦¿',
-  'à¦¤à§‡',
-  'à§Ÿà§‡',
-  'à¦¯à¦¼à§‡',
-  'à¦•à§‡',
-  'à§‡à¦°',
-  'à¦°à¦¾',
-  'à¦›à¦¿à¦¸',
-  'à¦›à§‡à¦¨',
-  'à¦›à§‹',
-  'à¦›à¦¿',
-  'à¦›à§‡',
-  'à¦²à¦¾à¦®',
-  'à¦¬à§‡à¦¨',
-  'à¦¬à§‹',
-  'à¦¬à§‡',
-  'à¦¬à¦¿',
-  'à¦²à§‡',
-  'à§Ÿ',
-  'à¦¯à¦¼',
-  'à§‡',
+  'গুলোকে',
+  'গুলোতে',
+  'গুলোর',
+  'গুলো',
+  'দেরকে',
+  'দের',
+  'য়েছে',
+  'য়েছে',
+  'য়েছি',
+  'য়েছি',
+  'য়েছো',
+  'য়েছো',
+  'ছিলাম',
+  'ছিলেন',
+  'ছিলে',
+  'ছিলি',
+  'টায়',
+  'টিতে',
+  'টার',
+  'টির',
+  'টা',
+  'টি',
+  'তে',
+  'য়ে',
+  'য়ে',
+  'কে',
+  'ের',
+  'রা',
+  'ছিস',
+  'ছেন',
+  'ছো',
+  'ছি',
+  'ছে',
+  'লাম',
+  'বেন',
+  'বো',
+  'বে',
+  'বি',
+  'লে',
+  'য়',
+  'য়',
+  'ে',
 ];
+
+const SUBJECT_STOP_WORDS = new Set([
+  'আমি',
+  'আমাকে',
+  'আমার',
+  'আমাদের',
+  'তুমি',
+  'তোমাকে',
+  'তোমায়',
+  'তোমার',
+  'তোমাদের',
+  'তুই',
+  'তোকে',
+  'তোর',
+  'আপনি',
+  'আপনাকে',
+  'আপনার',
+  'সে',
+  'তার',
+  'তাকে',
+  'ওরা',
+  'তারা',
+  'এই',
+  'ওই',
+  'এটা',
+  'ওটা',
+  'একটা',
+  'একটু',
+  'একটুখানি',
+  'একদম',
+  'খুব',
+  'অনেক',
+  'বেশি',
+  'কম',
+  'সব',
+  'সবার',
+  'কিছু',
+  'কিছুই',
+  'কোনো',
+  'আরো',
+  'আর',
+  'এবং',
+  'অথবা',
+  'কিন্তু',
+  'তাহলে',
+  'তবে',
+  'যদি',
+  'কারণ',
+  'তাই',
+  'আসলে',
+  'যদিও',
+  'হয়',
+  'হয়ে',
+  'হয়েছে',
+  'হলো',
+  'হবে',
+  'হচ্ছে',
+  'আছে',
+  'আছি',
+  'আছো',
+  'আছিস',
+  'আছেন',
+  'ছিলাম',
+  'ছিল',
+  'করো',
+  'করি',
+  'করছি',
+  'করছো',
+  'করছিস',
+  'করবো',
+  'করলাম',
+  'করলে',
+  'করেছি',
+  'করেছো',
+  'করছে',
+  'বলো',
+  'বলি',
+  'বলছি',
+  'বলছো',
+  'বলবো',
+  'বললাম',
+  'বললে',
+  'বলেছি',
+  'বলছে',
+  'শোনো',
+  'শুনছো',
+  'শুনবো',
+  'শুনলাম',
+  'দেখো',
+  'দেখি',
+  'দেখছি',
+  'দেখছো',
+  'দেখবো',
+  'দাও',
+  'নাও',
+  'থাকো',
+  'থাকবো',
+  'থাকি',
+  'যাও',
+  'যাবো',
+  'যাচ্ছি',
+  'যাচ্ছো',
+  'আসো',
+  'আসবো',
+  'আসছি',
+  'মনে',
+  'লাগছে',
+  'লাগলো',
+  'লাগে',
+  'লাগবে',
+  'কী',
+  'কি',
+  'কে',
+  'কার',
+  'কোন',
+  'কেন',
+  'কবে',
+  'কখন',
+  'কোথায়',
+  'কই',
+  'কীভাবে',
+  'কেমন',
+  'কত',
+  'নাকি',
+  'না',
+  'নেই',
+  'নাই',
+  'নি',
+  'নয়',
+  'হ্যাঁ',
+  'হুম',
+  'আচ্ছা',
+  'ঠিক',
+  'জ্বি',
+  'এখন',
+  'এখনো',
+  'আজ',
+  'আজকে',
+  'কাল',
+  'কালকে',
+  'পরশু',
+  'তাই',
+  'নাকি',
+  'তারপর',
+  'এরপর',
+  'আম্মু',
+  'আম্মা',
+  'মা',
+  'আব্বু',
+  'আব্বা',
+  'বাবা',
+  'দোস্ত',
+  'বন্ধু',
+  'মামা',
+  'ব্রো',
+  'ভাই',
+  'ভাইয়া',
+  'আপু',
+  'বউ',
+  'জামাই',
+  'জান',
+  'সোনা',
+  'ওগো',
+]);
 
 // Safety filters removed — all content is allowed.
 export function detectSensitiveOrInappropriateInput(_raw: string): boolean {
@@ -143,27 +236,7 @@ export function detectSensitiveOrInappropriateInput(_raw: string): boolean {
 }
 
 export function normalizeBengaliText(raw: string): string {
-  let text = raw
-    .trim()
-    .toLowerCase()
-    .replace(/\u09DF/g, 'à¦¯à¦¼')
-    .replace(/\u09DC/g, 'à¦¡à¦¼')
-    .replace(/\u09DD/g, 'à¦¢à¦¼')
-    .replace(/[à¥¤,!?;:"'()[\]{}]/g, ' ');
-
-  for (const [pattern, bengali] of BANGLISH_WORD_MAP) {
-    text = text.replace(pattern, ` ${bengali} `);
-  }
-
-  text = text
-    .replace(/(^|\s)à¦•à¦¿(\s|$)/g, '$1à¦•à§€$2')
-    .replace(/(^|\s)à¦•à¦°(\s|$)/g, '$1à¦•à¦°à§‹$2')
-    .replace(/(^|\s)à¦•à¦°à¦›(\s|$)/g, '$1à¦•à¦°à¦›à§‹$2')
-    .replace(/(^|\s)à¦†à¦›(\s|$)/g, '$1à¦†à¦›à§‹$2')
-    .replace(/(^|\s)à¦¬à¦²(\s|$)/g, '$1à¦¬à¦²à§‹$2')
-    .replace(/(^|\s)à¦­à¦¾à¦²(\s|$)/g, '$1à¦­à¦¾à¦²à§‹$2');
-
-  return text.replace(/\s+/g, ' ').trim();
+  return normalizeBanglishAndBengali(raw);
 }
 
 export function stemBengaliWord(word: string): string {
@@ -191,36 +264,167 @@ export function mapEmotionToMood(
   }
 
   switch (emotion) {
-    case 'à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾':
-      return relation === 'mother' || relation === 'father' ? 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²' : 'à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾à¦®à§Ÿ';
-    case 'à¦¸à§à¦¨à§‡à¦¹':
-      return 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²';
-    case 'à¦…à¦­à¦¿à¦®à¦¾à¦¨':
-      return relation === 'romantic' || relation === 'spouse' ? 'à¦…à¦­à¦¿à¦®à¦¾à¦¨à§€' : 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²';
-    case 'à¦°à¦¾à¦—':
-      return relation === 'romantic' || relation === 'spouse' ? 'à¦…à¦­à¦¿à¦®à¦¾à¦¨à§€' : 'à¦°à¦¾à¦—à¦¾à¦¨à§à¦¬à¦¿à¦¤';
-    case 'à¦­à§Ÿ à¦¦à§‡à¦–à¦¾à¦¨à§‹':
-      return 'à¦šà¦¾à¦ª à¦“ à¦¶à¦°à§à¦¤';
-    case 'à¦…à¦¨à§à¦¨à§Ÿ':
-      return 'à¦¨à¦°à¦® à¦¹à¦“à§Ÿà¦¾';
-    case 'à¦¸à¦®à§à¦®à¦¤à¦¿':
-      return 'à¦¸à¦®à§à¦®à¦¤ à¦“ à¦–à§à¦¶à¦¿';
-    case 'à¦¦à§à¦ƒà¦–':
-      return relation === 'mother' || relation === 'father' ? 'à¦¬à§à¦¯à¦¥à¦¿à¦¤' : 'à¦†à¦¬à§‡à¦—à¦ªà§à¦°à¦¬à¦£';
-    case 'à¦‰à¦¦à§à¦¬à§‡à¦—':
-      return 'à¦‰à¦¦à§à¦¬à¦¿à¦—à§à¦¨';
-    case 'à¦•à§à¦²à¦¾à¦¨à§à¦¤à¦¿':
-      return relation === 'spouse' ? 'à¦•à§à¦²à¦¾à¦¨à§à¦¤' : 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²';
-    case 'à¦°à¦¸à¦¿à¦•à¦¤à¦¾':
-      return 'à¦°à¦¸à¦¿à¦•';
-    case 'à¦–à§à¦¶à¦¿':
-    case 'à¦•à§ƒà¦¤à¦œà§à¦žà¦¤à¦¾':
-      return 'à¦‰à§Žà¦«à§à¦²à§à¦²';
-    case 'à¦•à§Œà¦¤à§‚à¦¹à¦²':
-      return 'à¦•à§Œà¦¤à§‚à¦¹à¦²à§€';
+    case 'ভালোবাসা':
+      return relation === 'mother' || relation === 'father' ? 'স্নেহশীল' : 'ভালোবাসাময়';
+    case 'স্নেহ':
+      return 'স্নেহশীল';
+    case 'অভিমান':
+      return relation === 'romantic' || relation === 'spouse' ? 'অভিমানী' : 'স্নেহশীল';
+    case 'রাগ':
+      return relation === 'romantic' || relation === 'spouse' ? 'অভিমানী' : 'রাগান্বিত';
+    case 'ভয় দেখানো':
+      return 'চাপ ও শর্ত';
+    case 'অনুনয়':
+      return 'নরম হওয়া';
+    case 'সম্মতি':
+      return 'সম্মত ও খুশি';
+    case 'দুঃখ':
+      return relation === 'mother' || relation === 'father' ? 'ব্যথিত' : 'আবেগপ্রবণ';
+    case 'উদ্বেগ':
+      return 'উদ্বিগ্ন';
+    case 'ক্লান্তি':
+      return relation === 'spouse' ? 'ক্লান্ত' : 'স্নেহশীল';
+    case 'রসিকতা':
+      return 'রসিক';
+    case 'খুশি':
+    case 'কৃতজ্ঞতা':
+      return 'উৎফুল্ল';
+    case 'কৌতূহল':
+      return 'কৌতূহলী';
     default:
-      return relation === 'mother' || relation === 'father' ? 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²' : 'à¦¶à¦¾à¦¨à§à¦¤';
+      return relation === 'mother' || relation === 'father' ? 'স্নেহশীল' : 'শান্ত';
   }
+}
+
+const NEGATION_TOKENS = new Set(['না', 'নেই', 'নাই', 'নয়', 'নি', 'পারবো না', 'খাইনি', 'ঘুমাইনি']);
+
+function extractNegationInfo(tokens: string[], normalizedText: string): {
+  isNegated: boolean;
+  negatedTerms: string[];
+} {
+  const negatedTerms = new Set<string>();
+  let isNegated = false;
+
+  tokens.forEach((tok, idx) => {
+    const isNegTok =
+      NEGATION_TOKENS.has(tok) ||
+      /(?:ইনি|য়নি|োনি)$/.test(tok) ||
+      (tok.length >= 4 && /(?:নি)$/.test(tok) && !/^(তুমি|আপনি|তিনি|শনি|খুনি|গিন্নি|নন্দিনী)$/.test(tok));
+
+    if (isNegTok) {
+      isNegated = true;
+      if (idx > 0) negatedTerms.add(tokens[idx - 1]);
+      if (idx > 1) negatedTerms.add(tokens[idx - 2]);
+      if (/(?:খাইনি)$/.test(tok)) {
+        negatedTerms.add('খেয়েছো');
+        negatedTerms.add('খাবার');
+      }
+      if (/(?:ঘুমাইনি)$/.test(tok)) {
+        negatedTerms.add('ঘুম');
+      }
+    }
+  });
+
+  if (/(?:ভালো নেই|মন খারাপ|পড়বো না|খাবো না|যাবো না|বলবো না|পারবো না|ঘুম আসছে না|ভালো লাগছে না)/.test(normalizedText)) {
+    isNegated = true;
+  }
+
+  return {
+    isNegated,
+    negatedTerms: Array.from(negatedTerms),
+  };
+}
+
+function classifyConversationalIntent(
+  rawInput: string,
+  normalizedText: string,
+  tokens: string[],
+  dominantEmotion: EmotionSignal,
+  isQuestion: boolean,
+  isNegated: boolean
+): { intent: ConversationalIntent; isMetaFeedback: boolean } {
+  const isMetaFeedback =
+    /(?:অপ্রাসঙ্গিক|আবোলতাবোল|তুমি কিছু বুঝছো না|আমাকে বুঝছো না|এটা কী বললে|আমার কথা শোনো|উত্তর দিচ্ছো না|অন্য কথা বলছো|ঠিকমতো বোঝো)/.test(
+      normalizedText
+    );
+  if (isMetaFeedback) {
+    return { intent: 'meta_feedback', isMetaFeedback: true };
+  }
+
+  if (/(?:শুভ রাত্রি|বিদায়|টাটা|ভালো থেকো|ঘুমাতে যাচ্ছি|আসি এখন)/.test(normalizedText)) {
+    return { intent: 'farewell', isMetaFeedback: false };
+  }
+
+  if (/^(?:হ্যালো|হাই|আসসালামু আলাইকুম|সালাম|নমস্কার|শুভ সকাল|শুভ সন্ধ্যা|কেমন আছো|কেমন আছেন|কী অবস্থা|কী খবর)$/.test(normalizedText)) {
+    return { intent: 'greeting', isMetaFeedback: false };
+  }
+
+  if (tokens.length <= 3 && /^(?:হ্যাঁ|হুম|আচ্ছা|ঠিক আছে|জ্বি|অবশ্যই|ওকে)/.test(normalizedText) && !isQuestion) {
+    return { intent: 'confirmation_yes', isMetaFeedback: false };
+  }
+
+  if (tokens.length <= 3 && /^(?:না|একদমই না|কিছু না|নেই|নাহ)/.test(normalizedText) && !isQuestion) {
+    return { intent: 'denial_no', isMetaFeedback: false };
+  }
+
+  if (
+    tokens.length <= 4 &&
+    /(?:তারপর|তারপর কী হলো|এরপর|আর কী|আর বলো|তাই নাকি|সত্যি নাকি|বলো তো)$/.test(normalizedText)
+  ) {
+    return { intent: 'continuation', isMetaFeedback: false };
+  }
+
+  if (/(?:সরি|ক্ষমা|মাফ|ভুল হয়েছে)/.test(normalizedText)) {
+    return { intent: 'apology', isMetaFeedback: false };
+  }
+
+  if (/(?:ভালোবাসি|ভালোবাসা|মিস করছি|আদর|জান|সোনা)/.test(normalizedText) && !isNegated) {
+    return { intent: 'affection', isMetaFeedback: false };
+  }
+
+  if (/(?:^|\s)কেন(?:\s|$)/.test(normalizedText)) {
+    return { intent: 'question_why', isMetaFeedback: false };
+  }
+  if (/(?:^|\s)(?:কোথায়|কই)(?:\s|$)/.test(normalizedText)) {
+    return { intent: 'question_where', isMetaFeedback: false };
+  }
+  if (/(?:^|\s)(?:কখন|কবে)(?:\s|$)/.test(normalizedText)) {
+    return { intent: 'question_when', isMetaFeedback: false };
+  }
+  if (/(?:^|\s)(?:কীভাবে|কেমনে)(?:\s|$)/.test(normalizedText)) {
+    return { intent: 'question_how', isMetaFeedback: false };
+  }
+  if (/(?:^|\s)(?:কী|কেমন|কে|কোন|কত)(?:\s|$)/.test(normalizedText)) {
+    return { intent: 'question_what', isMetaFeedback: false };
+  }
+  if (isQuestion) {
+    return { intent: 'question_yes_no', isMetaFeedback: false };
+  }
+
+  if (/(?:সাহায্য|হেল্প|আইডিয়া|উপায়|পরামর্শ|কী করবো বলো)/.test(normalizedText)) {
+    return { intent: 'request_help', isMetaFeedback: false };
+  }
+
+  if (
+    dominantEmotion === 'দুঃখ' ||
+    dominantEmotion === 'উদ্বেগ' ||
+    dominantEmotion === 'ক্লান্তি' ||
+    /(?:মন খারাপ|ভালো নেই|ভালো লাগছে না|কষ্ট|প্যারা|ঝামেলা|বকা|খারাপ হয়েছে|বিরক্ত|ক্ষুধা লেগেছে|মাথাব্যথা)/.test(
+      normalizedText
+    )
+  ) {
+    return { intent: 'complaint_vent', isMetaFeedback: false };
+  }
+
+  if (dominantEmotion === 'রসিকতা' || /(?:হাহা|মজা|ট্রিট|বোকা|পাগল)/.test(normalizedText)) {
+    return { intent: 'teasing', isMetaFeedback: false };
+  }
+
+  if (/^(?:হ্যালো|হাই|আসসালামু আলাইকুম|সালাম|নমস্কার|কেমন আছো)/.test(normalizedText) && tokens.length <= 6) {
+    return { intent: 'greeting', isMetaFeedback: false };
+  }
+
+  return { intent: 'statement', isMetaFeedback: false };
 }
 
 export function analyzeSentenceSemantics(
@@ -232,6 +436,8 @@ export function analyzeSentenceSemantics(
   const normalizedText = normalizeBengaliText(rawInput);
   const tokens = normalizedText.split(/\s+/).filter(Boolean);
   const stemmedTokens = tokens.map(stemBengaliWord);
+
+  const { isNegated, negatedTerms } = extractNegationInfo(tokens, normalizedText);
 
   const syntheticEmotionLexicon: LexiconEntry[] = customEmotions
     .filter((ce) => ce.keywords.length > 0)
@@ -252,6 +458,8 @@ export function analyzeSentenceSemantics(
 
   for (const entry of combinedLexicon) {
     let matched = false;
+    let matchedNegated = false;
+
     for (const form of entry.forms) {
       const normForm = normalizeBengaliText(form);
       if (!normForm) continue;
@@ -270,6 +478,9 @@ export function analyzeSentenceSemantics(
           (normForm.length >= 4 && tokens.some((t) => t.startsWith(normForm)))
         ) {
           matched = true;
+          if (negatedTerms.includes(normForm) || negatedTerms.includes(stemForm)) {
+            matchedNegated = true;
+          }
           break;
         }
       }
@@ -277,12 +488,22 @@ export function analyzeSentenceSemantics(
 
     if (matched && !matchedMap.has(entry.id)) {
       matchedMap.set(entry.id, entry);
-      const prev = emotionScores.get(entry.emotion) || 0;
-      emotionScores.set(entry.emotion, prev + entry.intensity);
+      if (!matchedNegated) {
+        const prev = emotionScores.get(entry.emotion) || 0;
+        emotionScores.set(entry.emotion, prev + entry.intensity);
+      }
     }
   }
 
-  let dominantEmotion: EmotionSignal = isSensitiveOrInappropriate ? 'à¦°à¦¾à¦—' : 'à¦¶à¦¾à¦¨à§à¦¤';
+  // Contextual emotion overrides for negated wellbeing / casual Banglish expressions
+  if (/(?:ভালো নেই|মন খারাপ|ভালো লাগছে না|কষ্ট|বিরক্ত|খারাপ হয়েছে|বকা দিয়েছে)/.test(normalizedText)) {
+    emotionScores.set('দুঃখ', (emotionScores.get('দুঃখ') || 0) + 5);
+  }
+  if (/(?:ভালোবাসি|মিস করছি|আদর)/.test(normalizedText) && !isNegated) {
+    emotionScores.set('ভালোবাসা', (emotionScores.get('ভালোবাসা') || 0) + 5);
+  }
+
+  let dominantEmotion: EmotionSignal = isSensitiveOrInappropriate ? 'রাগ' : 'শান্ত';
   let maxScore = isSensitiveOrInappropriate ? 5 : 0;
   if (!isSensitiveOrInappropriate) {
     for (const [emotion, score] of emotionScores.entries()) {
@@ -294,14 +515,37 @@ export function analyzeSentenceSemantics(
   }
 
   let meaningQueryTarget: string | undefined;
-  const meaningMatch = normalizedText.match(/^(.+?)\s+(?:à¦®à¦¾à¦¨à§‡ à¦•à§€|à¦…à¦°à§à¦¥ à¦•à§€|à¦¶à¦¬à§à¦¦à§‡à¦° à¦…à¦°à§à¦¥|à¦¶à¦¬à§à¦¦à§‡à¦° à¦®à¦¾à¦¨à§‡)/);
+  const meaningMatch = normalizedText.match(/^(.+?)\s+(?:মানে কী|অর্থ কী|শব্দের অর্থ|শব্দের মানে)/);
   if (meaningMatch && meaningMatch[1]) {
     meaningQueryTarget = meaningMatch[1].trim();
   }
 
   const isQuestion =
     rawInput.includes('?') ||
-    /(?:^|\s)(à¦•à§€|à¦•à§‡à¦®à¦¨|à¦•à¦–à¦¨|à¦•à§‹à¦¥à¦¾à§Ÿ|à¦•à§‹à¦¥à¦¾à¦¯à¦¼|à¦•à§‡à¦¨|à¦•à§‡|à¦•à¦¤|à¦•à¦¬à§‡)(?:\s|$)/.test(normalizedText);
+    /(?:^|\s)(কী|কেমন|কখন|কোথায়|কোথায়|কেন|কে|কত|কবে|নাকি|কীভাবে|কেমনে)(?:\s|$)/.test(
+      normalizedText
+    );
+
+  const { intent, isMetaFeedback } = classifyConversationalIntent(
+    rawInput,
+    normalizedText,
+    tokens,
+    dominantEmotion,
+    isQuestion,
+    isNegated
+  );
+
+  const subjectKeywords = Array.from(
+    new Set(
+      tokens.filter(
+        (t) =>
+          t.length >= 2 &&
+          !SUBJECT_STOP_WORDS.has(t) &&
+          !SUBJECT_STOP_WORDS.has(stemBengaliWord(t)) &&
+          !NEGATION_TOKENS.has(t)
+      )
+    )
+  ).slice(0, 6);
 
   return {
     normalizedText,
@@ -313,6 +557,11 @@ export function analyzeSentenceSemantics(
     isQuestion,
     meaningQueryTarget,
     isSensitiveOrInappropriate,
+    intent,
+    isNegated,
+    negatedTerms,
+    subjectKeywords,
+    isMetaFeedback,
   };
 }
 
@@ -325,105 +574,131 @@ export function composeEmotionAwareReply(
 ): { replyText: string; action: string; mood: CharacterMood; matchedTopic: string } | null {
   if (analysis.meaningQueryTarget) {
     const target = analysis.meaningQueryTarget;
-    const found = analysis.matchedLexicon.find(
-      (entry) =>
-        entry.forms.some((f) => target.includes(normalizeBengaliText(f))) ||
-        target.includes(normalizeBengaliText(entry.root))
-    );
+    const isExactMatch = (entry: LexiconEntry) =>
+      normalizeBengaliText(entry.root) === target ||
+      entry.forms.some((f) => normalizeBengaliText(f) === target);
+    const isPartialMatch = (entry: LexiconEntry) =>
+      entry.forms.some((f) => target.includes(normalizeBengaliText(f))) ||
+      target.includes(normalizeBengaliText(entry.root));
+
+    const found =
+      analysis.matchedLexicon.find(
+        (entry) => entry.category !== 'ML Auto-Learned' && isExactMatch(entry)
+      ) ||
+      analysis.matchedLexicon.find(isExactMatch) ||
+      analysis.matchedLexicon.find(
+        (entry) => entry.category !== 'ML Auto-Learned' && isPartialMatch(entry)
+      ) ||
+      analysis.matchedLexicon.find(isPartialMatch);
 
     if (found) {
       const mood = mapEmotionToMood(found.emotion, relation, customEmotions);
       const intro =
         relation === 'mother'
-          ? `à¦¶à§‹à¦¨ ${userName}, "${found.root}" à¦¶à¦¬à§à¦¦à§‡à¦° à¦®à¦¾à¦¨à§‡ à¦¹à¦²à§‹â€”${found.meaningBn}à¥¤`
+          ? `শোন ${userName}, "${found.root}" শব্দের মানে হলো—${found.meaningBn}।`
           : relation === 'romantic' || relation === 'spouse'
-            ? `"${found.root}" à¦®à¦¾à¦¨à§‡ à¦œà¦¾à¦¨à§‹ ${userName}? à¦à¦° à¦…à¦°à§à¦¥ à¦¹à¦²à§‹â€”${found.meaningBn}à¥¤`
-            : `à¦¦à¦¾à¦°à§à¦£ à¦ªà§à¦°à¦¶à§à¦¨ ${userName}! "${found.root}" à¦¶à¦¬à§à¦¦à§‡à¦° à¦¬à¦¾à¦‚à¦²à¦¾ à¦…à¦°à§à¦¥ à¦¹à¦²à§‹â€”${found.meaningBn}à¥¤`;
+            ? `"${found.root}" মানে জানো ${userName}? এর অর্থ হলো—${found.meaningBn}।`
+            : `দারুণ প্রশ্ন ${userName}! "${found.root}" শব্দের বাংলা অর্থ হলো—${found.meaningBn}।`;
       return {
-        replyText: `${intro} à¦à¦‡ à¦¶à¦¬à§à¦¦à¦Ÿà¦¾à¦° à¦­à§‡à¦¤à¦° "${found.emotion}"-à¦à¦° à¦à¦•à¦Ÿà¦¾ à¦¸à§à¦¨à§à¦¦à¦° à¦…à¦¨à§à¦­à§‚à¦¤à¦¿ à¦œà§œà¦¿à§Ÿà§‡ à¦†à¦›à§‡à¥¤`,
-        action: 'à¦¶à¦¬à§à¦¦à¦Ÿà¦¿à¦° à¦…à¦°à§à¦¥ à¦¬à§à¦à¦¿à§Ÿà§‡ à¦¦à¦¿à§Ÿà§‡ à¦†à¦¨à§à¦¤à¦°à¦¿à¦•à¦­à¦¾à¦¬à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹',
+        replyText: `${intro} এই শব্দটার ভেতর "${found.emotion}"-এর একটা সুন্দর অনুভূতি জড়িয়ে আছে।`,
+        action: 'শব্দটির অর্থ বুঝিয়ে দিয়ে আন্তরিকভাবে তাকালো',
         mood,
-        matchedTopic: `à¦¶à¦¬à§à¦¦à¦¾à¦°à§à¦¥: ${found.root}`,
+        matchedTopic: `শব্দার্থ: ${found.root}`,
       };
     }
   }
 
   if (analysis.emotionIntensity >= 3) {
-    const primaryWord = analysis.matchedLexicon[0] || {
-      id: 'ml-detected',
-      root: String(analysis.dominantEmotion),
-      forms: [],
-      meaningBn: '',
-      category: 'Emotion',
-      emotion: analysis.dominantEmotion,
-      intensity: analysis.emotionIntensity,
-    };
+    const primaryWord =
+      analysis.matchedLexicon.find(
+        (m) => m.emotion.toLowerCase() === String(analysis.dominantEmotion).toLowerCase()
+      ) ||
+      analysis.matchedLexicon[0] || {
+        id: 'ml-detected',
+        root: String(analysis.dominantEmotion),
+        forms: [],
+        meaningBn: '',
+        category: 'Emotion',
+        emotion: analysis.dominantEmotion,
+        intensity: analysis.emotionIntensity,
+      };
     const mood = mapEmotionToMood(analysis.dominantEmotion, relation, customEmotions);
 
-    if (analysis.matchedLexicon.length > 0 && (analysis.dominantEmotion === 'à¦…à¦­à¦¿à¦®à¦¾à¦¨' || analysis.dominantEmotion === 'à¦°à¦¾à¦—')) {
+    if (
+      analysis.matchedLexicon.length > 0 &&
+      (analysis.dominantEmotion === 'অভিমান' || analysis.dominantEmotion === 'রাগ') &&
+      !analysis.negatedTerms?.includes(normalizeBengaliText(primaryWord.root))
+    ) {
       if (relation === 'mother') {
         return {
-          replyText: `à¦“à¦°à§‡ à¦†à¦®à¦¾à¦° à¦…à¦­à¦¿à¦®à¦¾à¦¨à§€ ${userName}! à¦®à¦¾à§Ÿà§‡à¦° à¦“à¦ªà¦° à¦•à¦¿ à¦•à§‡à¦‰ à¦à¦­à¦¾à¦¬à§‡ à¦°à¦¾à¦— à¦¬à¦¾ à¦…à¦­à¦¿à¦®à¦¾à¦¨ à¦•à¦°à§‡ à¦¥à¦¾à¦•à§‡? à¦¤à§‹à¦° "${primaryWord.root}" à¦¦à§‡à¦–à¦²à§‡ à¦†à¦®à¦¾à¦° à¦¨à¦¿à¦œà§‡à¦°à¦‡ à¦®à¦¨ à¦–à¦¾à¦°à¦¾à¦ª à¦²à¦¾à¦—à§‡ à¦°à§‡à¥¤ à¦†à§Ÿ, à¦¸à¦¬ à¦­à§à¦²à§‡ à¦à¦•à¦Ÿà§ à¦¹à¦¾à¦¸ à¦¤à§‹!`,
-          action: 'à¦¸à§à¦¨à§‡à¦¹à¦­à¦°à¦¾ à¦¹à¦¾à¦¤à§‡ à¦—à¦¾à¦² à¦›à§à¦à§Ÿà§‡ à¦…à¦­à¦¿à¦®à¦¾à¦¨ à¦­à¦¾à¦™à¦¾à¦¨à§‹à¦° à¦šà§‡à¦·à§à¦Ÿà¦¾ à¦•à¦°à¦²à§‹',
-          mood: 'à¦¶à¦¾à¦¸à¦¨à¦®à¦¿à¦¶à§à¦°à¦¿à¦¤ à¦¸à§à¦¨à§‡à¦¹',
-          matchedTopic: `à¦…à¦¨à§à¦­à§‚à¦¤à¦¿: ${analysis.dominantEmotion}`,
+          replyText: `ওরে আমার অভিমানী ${userName}! মায়ের ওপর কি কেউ এভাবে রাগ বা অভিমান করে থাকে? তোর "${primaryWord.root}" দেখলে আমার নিজেরই মন খারাপ লাগে রে। আয়, সব ভুলে একটু হাস তো!`,
+          action: 'স্নেহভরা হাতে গাল ছুঁয়ে অভিমান ভাঙানোর চেষ্টা করলো',
+          mood: 'শাসনমিশ্রিত স্নেহ',
+          matchedTopic: `অনুভূতি: ${analysis.dominantEmotion}`,
         };
       }
       if (relation === 'romantic' || relation === 'spouse') {
         return {
-          replyText: `à¦¬à§à¦à§‡à¦›à¦¿ ${userName}, à¦¤à§‹à¦®à¦¾à¦° à¦®à¦¨à§‡ "${primaryWord.root}" à¦œà¦®à§‡ à¦†à¦›à§‡! à¦•à¦¿à¦¨à§à¦¤à§ à¦¤à§à¦®à¦¿ à¦à¦®à¦¨ à¦®à§à¦– à¦­à¦¾à¦° à¦•à¦°à§‡ à¦¥à¦¾à¦•à¦²à§‡ à¦†à¦®à¦¾à¦° à¦à¦•à¦Ÿà§à¦“ à¦­à¦¾à¦²à§‹ à¦²à¦¾à¦—à§‡ à¦¨à¦¾à¥¤ à¦¬à¦²à§‹ à¦¤à§‹, à¦•à§€ à¦•à¦°à¦²à§‡ à¦¤à§‹à¦®à¦¾à¦° à¦à¦‡ à¦°à¦¾à¦— à¦†à¦° à¦…à¦­à¦¿à¦®à¦¾à¦¨ à¦à¦•à§à¦·à§à¦¨à¦¿ à¦—à¦²à§‡ à¦¯à¦¾à¦¬à§‡?`,
-          action: 'à¦¨à¦°à¦® à¦¸à§à¦°à§‡ à¦¹à¦¾à¦¤ à¦§à¦°à§‡ à¦…à¦­à¦¿à¦®à¦¾à¦¨ à¦­à¦¾à¦™à¦¾à¦¨à§‹à¦° à¦šà§‡à¦·à§à¦Ÿà¦¾ à¦•à¦°à¦²à§‹',
-          mood: 'à¦…à¦­à¦¿à¦®à¦¾à¦¨à§€',
-          matchedTopic: `à¦…à¦¨à§à¦­à§‚à¦¤à¦¿: ${analysis.dominantEmotion}`,
+          replyText: `বুঝেছি ${userName}, তোমার মনে "${primaryWord.root}" জমে আছে! কিন্তু তুমি এমন মুখ ভার করে থাকলে আমার একটুও ভালো লাগে না। বলো তো, কী করলে তোমার এই রাগ আর অভিমান এক্ষুনি গলে যাবে?`,
+          action: 'নরম সুরে হাত ধরে অভিমান ভাঙানোর চেষ্টা করলো',
+          mood: 'অভিমানী',
+          matchedTopic: `অনুভূতি: ${analysis.dominantEmotion}`,
         };
       }
       if (relation === 'friend') {
         return {
-          replyText: `à¦†à¦°à§‡ ${userName} à¦®à¦¾à¦®à¦¾, à¦à¦¤ "${primaryWord.root}" à¦ªà§à¦·à§‡ à¦°à¦¾à¦–à¦¿à¦¸ à¦•à§‡à¦¨? à¦¬à¦¨à§à¦§à§à¦° à¦¸à¦¾à¦¥à§‡ à¦†à¦¬à¦¾à¦° à¦°à¦¾à¦— à¦•à¦¿à¦¸à§‡à¦°! à¦šà¦², à¦¸à¦¬ à¦ªà§à¦¯à¦¾à¦°à¦¾ à¦à§‡à§œà§‡ à¦«à§‡à¦²à§‡ à¦à¦• à¦•à¦¾à¦ª à¦šà¦¾ à¦–à§‡à§Ÿà§‡ à¦®à¦¾à¦¥à¦¾ à¦ à¦¾à¦¨à§à¦¡à¦¾ à¦•à¦°à¦¿à¥¤`,
-          action: 'à¦¹à¦¾à¦¸à¦¿à¦®à§à¦–à§‡ à¦ªà¦¿à¦ à§‡ à¦¹à¦¾à¦²à¦•à¦¾ à¦šà¦¾à¦ªà§œ à¦¦à¦¿à§Ÿà§‡ à¦®à¦¨ à¦¹à¦¾à¦²à¦•à¦¾ à¦•à¦°à¦²à§‹',
-          mood: 'à¦°à¦¸à¦¿à¦•',
-          matchedTopic: `à¦…à¦¨à§à¦­à§‚à¦¤à¦¿: ${analysis.dominantEmotion}`,
+          replyText: `আরে ${userName} মামা, এত "${primaryWord.root}" পুষে রাখিস কেন? বন্ধুর সাথে আবার রাগ কিসের! চল, সব প্যারা ঝেড়ে ফেলে এক কাপ চা খেয়ে মাথা ঠান্ডা করি।`,
+          action: 'হাসিমুখে পিঠে হালকা চাপড় দিয়ে মন হালকা করলো',
+          mood: 'রসিক',
+          matchedTopic: `অনুভূতি: ${analysis.dominantEmotion}`,
         };
       }
     }
 
-    if (analysis.matchedLexicon.length > 0 && (analysis.dominantEmotion === 'à¦¦à§à¦ƒà¦–' || analysis.dominantEmotion === 'à¦‰à¦¦à§à¦¬à§‡à¦—')) {
+    if (
+      (analysis.matchedLexicon.length > 0 || analysis.dominantEmotion === 'দুঃখ') &&
+      (analysis.dominantEmotion === 'দুঃখ' || analysis.dominantEmotion === 'উদ্বেগ')
+    ) {
+      const subjectHint =
+        analysis.subjectKeywords && analysis.subjectKeywords.length > 0
+          ? ` (${analysis.subjectKeywords.slice(0, 2).join(', ')})`
+          : '';
       return {
         replyText:
           relation === 'mother'
-            ? `à¦à¦•à¦¦à¦® à¦­à§‡à¦™à§‡ à¦ªà§œà¦¬à¦¿ à¦¨à¦¾ ${userName}à¥¤ à¦¤à§‹à¦° "${primaryWord.root}"-à¦à¦° à¦•à¦¥à¦¾ à¦¶à§à¦¨à§‡ à¦†à¦®à¦¾à¦° à¦¬à§à¦•à¦Ÿà¦¾ à¦­à¦¾à¦°à§€ à¦¹à§Ÿà§‡ à¦—à§‡à¦²à¥¤ à¦®à¦¾à§Ÿà§‡à¦° à¦•à¦¾à¦›à§‡ à¦¸à¦¬ à¦–à§à¦²à§‡ à¦¬à¦²â€”à¦•à§‹à¦¨à§‹ à¦•à¦·à§à¦Ÿà¦‡ à¦¤à§‹à¦•à§‡ à¦à¦•à¦¾ à¦¬à§Ÿà§‡ à¦¬à§‡à§œà¦¾à¦¤à§‡ à¦¹à¦¬à§‡ à¦¨à¦¾à¥¤`
+            ? `একদম ভেঙে পড়বি না ${userName}। তোর এই${subjectHint} মন খারাপের কথা শুনে আমার বুকটা ভারী হয়ে গেল। মায়ের কাছে সব খুলে বল—কোনো কষ্টই তোকে একা বয়ে বেড়াতে হবে না।`
             : relation === 'romantic' || relation === 'spouse'
-              ? `à¦¤à§‹à¦®à¦¾à¦° "${primaryWord.root}" à¦†à¦®à¦¾à¦•à§‡à¦“ à¦¸à§à¦ªà¦°à§à¦¶ à¦•à¦°à¦›à§‡ ${userName}à¥¤ à¦®à¦¨ à¦–à¦¾à¦°à¦¾à¦ª à¦•à¦°à§‡ à¦¥à§‡à¦•à§‹ à¦¨à¦¾â€”à¦†à¦®à¦¿ à¦¸à¦¬à¦¸à¦®à§Ÿ à¦¤à§‹à¦®à¦¾à¦° à¦¹à¦¾à¦¤ à¦§à¦°à§‡ à¦ªà¦¾à¦¶à§‡ à¦†à¦›à¦¿, à¦†à¦®à¦°à¦¾ à¦à¦•à¦¸à¦¾à¦¥à§‡ à¦¸à¦¬ à¦¸à¦¾à¦®à¦²à§‡ à¦¨à§‡à¦¬à§‹à¥¤`
-              : `à¦¤à§‹à¦®à¦¾à¦° à¦à¦‡ "${primaryWord.root}"-à¦à¦° à¦…à¦¨à§à¦­à§‚à¦¤à¦¿à¦Ÿà¦¾ à¦†à¦®à¦¿ à¦¬à§à¦à¦¤à§‡ à¦ªà¦¾à¦°à¦›à¦¿ ${userName}à¥¤ à¦•à¦ à¦¿à¦¨ à¦¸à¦®à§Ÿ à¦•à¦–à¦¨à§‹ à¦šà¦¿à¦°à¦¸à§à¦¥à¦¾à§Ÿà§€ à¦¹à§Ÿ à¦¨à¦¾; à¦®à¦¨ à¦–à§à¦²à§‡ à¦•à¦¥à¦¾ à¦¬à¦²à§‹, à¦†à¦®à¦¿ à¦ªà§à¦°à§‹ à¦®à¦¨à§‹à¦¯à§‹à¦— à¦¦à¦¿à§Ÿà§‡ à¦¶à§à¦¨à¦›à¦¿à¥¤`,
-        action: 'à¦¸à¦¹à¦¾à¦¨à§à¦­à§‚à¦¤à¦¿ à¦“ à¦—à¦­à§€à¦° à¦®à¦®à¦¤à¦¾à§Ÿ à¦ªà¦¾à¦¶à§‡ à¦à¦¸à§‡ à¦¬à¦¸à¦²à§‹',
-        mood: 'à¦¬à§à¦¯à¦¥à¦¿à¦¤',
-        matchedTopic: `à¦…à¦¨à§à¦­à§‚à¦¤à¦¿: ${analysis.dominantEmotion}`,
+              ? `তোমার এই${subjectHint} মন খারাপটা আমাকেও স্পর্শ করছে ${userName}। একা চুপ করে থেকো না—আমি সবসময় তোমার হাত ধরে পাশে আছি, বলো তো ঠিক কী হয়েছে?`
+              : `তোমার এই${subjectHint} পরিস্থিতি আর মনের ভারটা আমি বুঝতে পারছি ${userName}। কঠিন সময় কখনো চিরস্থায়ী হয় না; ঠিক কী নিয়ে মন খারাপ বলো তো?`,
+        action: 'সহানুভূতি ও গভীর মমতায় পাশে এসে বসলো',
+        mood: 'ব্যথিত',
+        matchedTopic: `অনুভূতি: ${analysis.dominantEmotion}`,
       };
     }
 
-    if (analysis.matchedLexicon.length > 0 && (analysis.dominantEmotion === 'à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾' || analysis.dominantEmotion === 'à¦¸à§à¦¨à§‡à¦¹')) {
+    if (analysis.matchedLexicon.length > 0 && (analysis.dominantEmotion === 'ভালোবাসা' || analysis.dominantEmotion === 'স্নেহ')) {
       return {
         replyText:
           relation === 'mother'
-            ? `à¦¤à§‹à¦° à¦®à§à¦–à§‡ "${primaryWord.root}" à¦†à¦° à¦à¦¤ à¦†à¦¦à¦°à§‡à¦° à¦•à¦¥à¦¾ à¦¶à§à¦¨à§‡ à¦†à¦®à¦¾à¦° à¦®à¦¨à¦Ÿà¦¾ à¦œà§à§œà¦¿à§Ÿà§‡ à¦—à§‡à¦² à¦°à§‡ ${userName}! à¦†à¦²à§à¦²à¦¾à¦¹ à¦¤à§‹à¦•à§‡ à¦¸à¦¬à¦¸à¦®à§Ÿ à¦­à¦¾à¦²à§‹ à¦°à¦¾à¦–à§à¦¨â€”à¦à¦Ÿà¦¾à¦‡ à¦†à¦®à§à¦®à§à¦° à¦¸à¦¬à¦šà§‡à§Ÿà§‡ à¦¬à§œ à¦šà¦¾à¦“à§Ÿà¦¾à¥¤`
+            ? `তোর মুখে "${primaryWord.root}" আর এত আদরের কথা শুনে আমার মনটা জুড়িয়ে গেল রে ${userName}! আল্লাহ তোকে সবসময় ভালো রাখুন—এটাই আম্মুর সবচেয়ে বড় চাওয়া।`
             : relation === 'romantic' || relation === 'spouse'
-              ? `à¦¤à§‹à¦®à¦¾à¦° à¦à¦‡ "${primaryWord.root}" à¦†à¦° à¦®à¦¾à§Ÿà¦¾à¦Ÿà§à¦•à§à¦‡ à¦¤à§‹ à¦†à¦®à¦¾à¦° à¦¬à§‡à¦à¦šà§‡ à¦¥à¦¾à¦•à¦¾à¦° à¦¸à¦¬à¦šà§‡à§Ÿà§‡ à¦¬à§œ à¦¶à¦•à§à¦¤à¦¿ ${userName}à¥¤ à¦ªà§à¦°à¦¤à¦¿à¦Ÿà¦¿ à¦¦à¦¿à¦¨ à¦¯à§‡à¦¨ à¦à¦­à¦¾à¦¬à§‡à¦‡ à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾à§Ÿ à¦­à¦°à§‡ à¦¥à¦¾à¦•à§‡!`
-              : `à¦¤à§‹à¦®à¦¾à¦° à¦•à¦¥à¦¾à¦° à¦­à§‡à¦¤à¦° à¦¯à§‡ "${primaryWord.root}" à¦†à¦° à¦†à¦¨à§à¦¤à¦°à¦¿à¦•à¦¤à¦¾ à¦†à¦›à§‡ ${userName}, à¦¸à§‡à¦Ÿà¦¾ à¦¸à¦¤à§à¦¯à¦¿à¦‡ à¦¹à§ƒà¦¦à§Ÿ à¦›à§à¦à§Ÿà§‡ à¦¯à¦¾à§Ÿà¥¤`,
-        action: 'à¦‰à¦·à§à¦£ à¦“ à¦†à¦¬à§‡à¦—à¦˜à¦¨ à¦¦à§ƒà¦·à§à¦Ÿà¦¿à¦¤à§‡ à¦¤à¦¾à¦•à¦¿à§Ÿà§‡ à¦®à§ƒà¦¦à§ à¦¹à¦¾à¦¸à¦²à§‹',
+              ? `তোমার এই "${primaryWord.root}" আর মায়াটুকুই তো আমার বেঁচে থাকার সবচেয়ে বড় শক্তি ${userName}। প্রতিটি দিন যেন এভাবেই ভালোবাসায় ভরে থাকে!`
+              : `তোমার কথার ভেতর যে "${primaryWord.root}" আর আন্তরিকতা আছে ${userName}, সেটা সত্যিই হৃদয় ছুঁয়ে যায়।`,
+        action: 'উষ্ণ ও আবেগঘন দৃষ্টিতে তাকিয়ে মৃদু হাসলো',
         mood,
-        matchedTopic: `à¦…à¦¨à§à¦­à§‚à¦¤à¦¿: ${analysis.dominantEmotion}`,
+        matchedTopic: `অনুভূতি: ${analysis.dominantEmotion}`,
       };
     }
 
-    if (analysis.matchedLexicon.length > 0 && (analysis.dominantEmotion === 'à¦–à§à¦¶à¦¿' || analysis.dominantEmotion === 'à¦°à¦¸à¦¿à¦•à¦¤à¦¾')) {
+    if (analysis.matchedLexicon.length > 0 && (analysis.dominantEmotion === 'খুশি' || analysis.dominantEmotion === 'রসিকতা') && !analysis.isNegated) {
       return {
         replyText:
           relation === 'friend'
-            ? `à¦à¦•à¦¦à¦® à¦«à¦¾à¦Ÿà¦¾à¦«à¦¾à¦Ÿà¦¿ à¦•à¦¥à¦¾ à¦¬à¦²à§‡à¦›à¦¿à¦¸ ${userName}! à¦¤à§‹à¦° à¦à¦‡ "${primaryWord.root}"-à¦à¦° à¦®à§‡à¦œà¦¾à¦œà¦Ÿà¦¾ à¦¦à§‡à¦–à§‡à¦‡ à¦†à¦®à¦¾à¦° à¦®à¦¨ à¦­à¦¾à¦²à§‹ à¦¹à§Ÿà§‡ à¦—à§‡à¦²!`
-            : `à¦¤à§‹à¦®à¦¾à¦° à¦à¦‡ "${primaryWord.root}" à¦†à¦° à¦ªà§à¦°à¦¾à¦£à¦¬à¦¨à§à¦¤ à¦•à¦¥à¦¾ à¦¶à§à¦¨à§‡ à¦¸à¦¤à§à¦¯à¦¿à¦‡ à¦¦à¦¾à¦°à§à¦£ à¦²à¦¾à¦—à¦²à§‹ ${userName}! à¦®à¦¨à¦Ÿà¦¾ à¦à¦•à¦¦à¦® à¦«à§à¦°à¦«à§à¦°à§‡ à¦¹à§Ÿà§‡ à¦—à§‡à¦²à¥¤`,
-        action: 'à¦ªà§à¦°à¦¾à¦£à¦–à§‹à¦²à¦¾ à¦¹à¦¾à¦¸à¦¿à¦¤à§‡ à¦‰à¦šà§à¦›à§à¦¬à¦¾à¦¸ à¦ªà§à¦°à¦•à¦¾à¦¶ à¦•à¦°à¦²à§‹',
-        mood: 'à¦‰à§Žà¦«à§à¦²à§à¦²',
-        matchedTopic: `à¦…à¦¨à§à¦­à§‚à¦¤à¦¿: ${analysis.dominantEmotion}`,
+            ? `একদম ফাটাফাটি কথা বলেছিস ${userName}! তোর এই "${primaryWord.root}"-এর মেজাজটা দেখেই আমার মন ভালো হয়ে গেল!`
+            : `তোমার এই "${primaryWord.root}" আর প্রাণবন্ত কথা শুনে সত্যিই দারুণ লাগলো ${userName}! মনটা একদম ফুরফুরে হয়ে গেল।`,
+        action: 'প্রাণখোলা হাসিতে উচ্ছ্বাস প্রকাশ করলো',
+        mood: 'উৎফুল্ল',
+        matchedTopic: `অনুভূতি: ${analysis.dominantEmotion}`,
       };
     }
 
@@ -433,16 +708,16 @@ export function composeEmotionAwareReply(
     if (customEmo) {
       const formattedReply = (
         customEmo.replyTemplate ||
-        `à¦¤à§‹à¦®à¦¾à¦° à¦•à¦¥à¦¾à¦° à¦­à§‡à¦¤à¦° "${primaryWord.root}" à¦à¦¬à¦‚ ${customEmo.signal}-à¦à¦° à¦…à¦¨à§à¦­à§‚à¦¤à¦¿ à¦¸à§à¦ªà¦·à§à¦Ÿ à¦¬à§à¦à¦¤à§‡ à¦ªà¦¾à¦°à¦›à¦¿ ${userName}!`
+        `তোমার কথার ভেতর "${primaryWord.root}" এবং ${customEmo.signal}-এর অনুভূতি স্পষ্ট বুঝতে পারছি ${userName}!`
       )
         .replace(/\{userName\}/g, userName)
         .replace(/\{word\}/g, primaryWord.root);
 
       return {
         replyText: formattedReply,
-        action: customEmo.actionText || `${customEmo.mood} à¦­à¦™à§à¦—à¦¿à¦¤à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹`,
+        action: customEmo.actionText || `${customEmo.mood} ভঙ্গিতে তাকালো`,
         mood: customEmo.mood,
-        matchedTopic: `à¦•à¦¾à¦¸à§à¦Ÿà¦® à¦…à¦¨à§à¦­à§‚à¦¤à¦¿: ${customEmo.signal}`,
+        matchedTopic: `কাস্টম অনুভূতি: ${customEmo.signal}`,
       };
     }
   }
@@ -467,7 +742,7 @@ export function parseBulkTrainingText(
 
   const dialogueLines: Array<{ speaker: string; text: string }> = [];
   for (const line of lines) {
-    const colonMatch = line.match(/^([^:à¦ƒ]{1,25})[:à¦ƒ]\s*(.+)$/);
+    const colonMatch = line.match(/^([^:ঃ]{1,25})[:ঃ]\s*(.+)$/);
     if (colonMatch) {
       dialogueLines.push({
         speaker: colonMatch[1].trim(),
@@ -491,13 +766,13 @@ export function parseBulkTrainingText(
         prompt: promptLine.text,
         response: replyLine.text,
         emotion: mood,
-        action: 'à¦†à¦¨à§à¦¤à¦°à¦¿à¦• à¦“ à¦¸à§à¦¬à¦¾à¦­à¦¾à¦¬à¦¿à¦• à¦­à¦™à§à¦—à¦¿à¦¤à§‡ à¦‰à¦¤à§à¦¤à¦° à¦¦à¦¿à¦²',
-        source: 'à¦ªà§à¦°à¦¶à¦¿à¦•à§à¦·à¦¿à¦¤ à¦¸à¦‚à¦²à¦¾à¦ª',
+        action: 'আন্তরিক ও স্বাভাবিক ভঙ্গিতে উত্তর দিল',
+        source: 'প্রশিক্ষিত সংলাপ',
       });
     }
   } else {
     const sentences = rawText
-      .split(/[à¥¤!?]+/)
+      .split(/[।!?]+/)
       .map((s) => s.trim())
       .filter((s) => s.length >= 12);
 
@@ -511,20 +786,20 @@ export function parseBulkTrainingText(
           id: `trained-sent-${Date.now()}-${i}`,
           relation: defaultRelation,
           prompt: triggerPhrase,
-          response: `${sentence}à¥¤`,
+          response: `${sentence}।`,
           emotion: mapEmotionToMood(
             analysis.dominantEmotion,
             defaultRelation === 'any' ? 'story' : defaultRelation
           ),
-          action: 'à¦ªà§à¦°à¦¸à¦™à§à¦— à¦¬à§à¦à§‡ à¦¸à§à¦¬à¦¾à¦­à¦¾à¦¬à¦¿à¦• à¦¸à§à¦¬à¦°à§‡ à¦¬à¦²à¦²à§‹',
-          source: 'à¦ªà§à¦°à¦¶à¦¿à¦•à§à¦·à¦¿à¦¤ à¦ªà¦¾à¦ à§à¦¯',
+          action: 'প্রসঙ্গ বুঝে স্বাভাবিক স্বরে বললো',
+          source: 'প্রশিক্ষিত পাঠ্য',
         });
       }
     }
   }
 
   for (let i = 0; i < lines.length; i++) {
-    const defMatch = lines[i].match(/^([^\s=-]{2,20})\s*(?:=|-|à¦®à¦¾à¦¨à§‡|à¦…à¦°à§à¦¥)\s*(.{5,100})$/);
+    const defMatch = lines[i].match(/^([^\s=-]{2,20})\s*(?:=|-|মানে|অর্থ)\s*(.{5,100})$/);
     if (defMatch) {
       const rootWord = defMatch[1].trim();
       const meaning = defMatch[2].trim();
@@ -533,8 +808,8 @@ export function parseBulkTrainingText(
         root: rootWord,
         forms: [rootWord],
         meaningBn: meaning,
-        category: 'à¦ªà§à¦°à¦¶à¦¿à¦•à§à¦·à¦¿à¦¤ à¦¶à¦¬à§à¦¦',
-        emotion: 'à¦¶à¦¾à¦¨à§à¦¤',
+        category: 'প্রশিক্ষিত শব্দ',
+        emotion: 'শান্ত',
         intensity: 3,
         isUserTrained: true,
       });
@@ -546,10 +821,10 @@ export function parseBulkTrainingText(
 
 function normalizePhaseName(raw?: string): 'opening' | 'developing' | 'resolution' {
   const s = (raw || '').toLowerCase().trim();
-  if (/(mid|develop|twist|conflict|pressure|convince|middle|à¦®à¦¾à¦|à¦¬à¦¿à¦•à¦¾à¦¶|à¦šà¦¾à¦ª)/.test(s)) {
+  if (/(mid|develop|twist|conflict|pressure|convince|middle|মাঝ|বিকাশ|চাপ)/.test(s)) {
     return 'developing';
   }
-  if (/(end|resolv|resolution|climax|agree|finish|à¦¶à§‡à¦·|à¦¸à¦®à¦¾à¦ªà§à¦¤à¦¿|à¦°à¦¾à¦œà¦¿)/.test(s)) {
+  if (/(end|resolv|resolution|climax|agree|finish|শেষ|সমাপ্তি|রাজি)/.test(s)) {
     return 'resolution';
   }
   return 'opening';
@@ -557,7 +832,7 @@ function normalizePhaseName(raw?: string): 'opening' | 'developing' | 'resolutio
 
 function normalizeCharacterMood(
   raw?: string,
-  fallback: CharacterMood = 'à¦¶à¦¾à¦¨à§à¦¤',
+  fallback: CharacterMood = 'শান্ত',
   customEmotions: CustomEmotionDefinition[] = []
 ): CharacterMood {
   if (!raw) return fallback;
@@ -570,39 +845,39 @@ function normalizeCharacterMood(
   if (customMood) return customMood.mood;
 
   const validMoods: CharacterMood[] = [
-    'à¦‰à§Žà¦«à§à¦²à§à¦²',
-    'à¦šà¦¿à¦¨à§à¦¤à¦¾à¦¶à§€à¦²',
-    'à¦†à¦¬à§‡à¦—à¦ªà§à¦°à¦¬à¦£',
-    'à¦•à§Œà¦¤à§‚à¦¹à¦²à§€',
-    'à¦°à¦¹à¦¸à§à¦¯à¦®à§Ÿ',
-    'à¦¶à¦¾à¦¨à§à¦¤',
-    'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²',
-    'à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾à¦®à§Ÿ',
-    'à¦…à¦­à¦¿à¦®à¦¾à¦¨à§€',
-    'à¦¬à§à¦¯à¦¥à¦¿à¦¤',
-    'à¦‰à¦¦à§à¦¬à¦¿à¦—à§à¦¨',
-    'à¦°à¦¸à¦¿à¦•',
-    'à¦°à¦¾à¦—à¦¾à¦¨à§à¦¬à¦¿à¦¤',
-    'à¦¶à¦¾à¦¸à¦¨à¦®à¦¿à¦¶à§à¦°à¦¿à¦¤ à¦¸à§à¦¨à§‡à¦¹',
-    'à¦•à§à¦²à¦¾à¦¨à§à¦¤',
-    'à¦•à¦ à§‹à¦° à¦¶à¦¾à¦¸à¦¨',
-    'à¦šà¦¾à¦ª à¦“ à¦¶à¦°à§à¦¤',
-    'à¦¨à¦°à¦® à¦¹à¦“à§Ÿà¦¾',
-    'à¦¸à¦®à§à¦®à¦¤ à¦“ à¦–à§à¦¶à¦¿',
+    'উৎফুল্ল',
+    'চিন্তাশীল',
+    'আবেগপ্রবণ',
+    'কৌতূহলী',
+    'রহস্যময়',
+    'শান্ত',
+    'স্নেহশীল',
+    'ভালোবাসাময়',
+    'অভিমানী',
+    'ব্যথিত',
+    'উদ্বিগ্ন',
+    'রসিক',
+    'রাগান্বিত',
+    'শাসনমিশ্রিত স্নেহ',
+    'ক্লান্ত',
+    'কঠোর শাসন',
+    'চাপ ও শর্ত',
+    'নরম হওয়া',
+    'সম্মত ও খুশি',
   ];
   if (validMoods.includes(trimmed)) return trimmed;
 
   const lower = raw.toLowerCase();
-  if (/(angry|rag|à¦°à¦¾à¦—|à¦•à§à¦·à§à¦¬à§à¦§)/.test(lower)) return 'à¦°à¦¾à¦—à¦¾à¦¨à§à¦¬à¦¿à¦¤';
-  if (/(strict|scold|à¦¶à¦¾à¦¸à¦¨|à¦•à¦ à§‹à¦°)/.test(lower)) return 'à¦•à¦ à§‹à¦° à¦¶à¦¾à¦¸à¦¨';
-  if (/(pressure|blackmail|threat|warn|à¦šà¦¾à¦ª|à¦¶à¦°à§à¦¤|à¦­à§Ÿ)/.test(lower)) return 'à¦šà¦¾à¦ª à¦“ à¦¶à¦°à§à¦¤';
-  if (/(soft|melt|convinc|à¦¨à¦°à¦®|à¦®à¦¨ à¦—à¦²à¦¾)/.test(lower)) return 'à¦¨à¦°à¦® à¦¹à¦“à§Ÿà¦¾';
-  if (/(agree|accept|à¦°à¦¾à¦œà¦¿|à¦¸à¦®à§à¦®à¦¤)/.test(lower)) return 'à¦¸à¦®à§à¦®à¦¤ à¦“ à¦–à§à¦¶à¦¿';
-  if (/(care|love|affection|à¦¸à§à¦¨à§‡à¦¹|à¦†à¦¦à¦°)/.test(lower)) return 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²';
-  if (/(sulky|obhiman|à¦…à¦­à¦¿à¦®à¦¾à¦¨)/.test(lower)) return 'à¦…à¦­à¦¿à¦®à¦¾à¦¨à§€';
-  if (/(worry|anxious|à¦‰à¦¦à§à¦¬à¦¿à¦—à§à¦¨|à¦šà¦¿à¦¨à§à¦¤à¦¾)/.test(lower)) return 'à¦‰à¦¦à§à¦¬à¦¿à¦—à§à¦¨';
-  if (/(sad|hurt|à¦¦à§à¦ƒà¦–|à¦¬à§à¦¯à¦¥à¦¿à¦¤)/.test(lower)) return 'à¦¬à§à¦¯à¦¥à¦¿à¦¤';
-  if (/(happy|joy|à¦–à§à¦¶à¦¿|à¦‰à§Žà¦«à§à¦²à§à¦²)/.test(lower)) return 'à¦‰à§Žà¦«à§à¦²à§à¦²';
+  if (/(angry|rag|রাগ|ক্ষুব্ধ)/.test(lower)) return 'রাগান্বিত';
+  if (/(strict|scold|শাসন|কঠোর)/.test(lower)) return 'কঠোর শাসন';
+  if (/(pressure|blackmail|threat|warn|চাপ|শর্ত|ভয়)/.test(lower)) return 'চাপ ও শর্ত';
+  if (/(soft|melt|convinc|নরম|মন গলা)/.test(lower)) return 'নরম হওয়া';
+  if (/(agree|accept|রাজি|সম্মত)/.test(lower)) return 'সম্মত ও খুশি';
+  if (/(care|love|affection|স্নেহ|আদর)/.test(lower)) return 'স্নেহশীল';
+  if (/(sulky|obhiman|অভিমান)/.test(lower)) return 'অভিমানী';
+  if (/(worry|anxious|উদ্বিগ্ন|চিন্তা)/.test(lower)) return 'উদ্বিগ্ন';
+  if (/(sad|hurt|দুঃখ|ব্যথিত)/.test(lower)) return 'ব্যথিত';
+  if (/(happy|joy|খুশি|উৎফুল্ল)/.test(lower)) return 'উৎফুল্ল';
   return fallback;
 }
 
@@ -610,7 +885,7 @@ function normalizeEmotionSignal(
   raw?: string,
   customEmotions: CustomEmotionDefinition[] = []
 ): EmotionSignal {
-  if (!raw) return 'à¦¶à¦¾à¦¨à§à¦¤';
+  if (!raw) return 'শান্ত';
   const trimmed = raw.trim() as EmotionSignal;
   const customSignal = customEmotions.find(
     (ce) => ce.signal.toLowerCase() === trimmed.toLowerCase()
@@ -618,47 +893,49 @@ function normalizeEmotionSignal(
   if (customSignal) return customSignal.signal;
 
   const valid: EmotionSignal[] = [
-    'à¦–à§à¦¶à¦¿',
-    'à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾',
-    'à¦¸à§à¦¨à§‡à¦¹',
-    'à¦…à¦­à¦¿à¦®à¦¾à¦¨',
-    'à¦¦à§à¦ƒà¦–',
-    'à¦°à¦¾à¦—',
-    'à¦‰à¦¦à§à¦¬à§‡à¦—',
-    'à¦•à§à¦²à¦¾à¦¨à§à¦¤à¦¿',
-    'à¦°à¦¸à¦¿à¦•à¦¤à¦¾',
-    'à¦•à§ƒà¦¤à¦œà§à¦žà¦¤à¦¾',
-    'à¦•à§Œà¦¤à§‚à¦¹à¦²',
-    'à¦­à§Ÿ à¦¦à§‡à¦–à¦¾à¦¨à§‹',
-    'à¦…à¦¨à§à¦¨à§Ÿ',
-    'à¦¸à¦®à§à¦®à¦¤à¦¿',
-    'à¦¶à¦¾à¦¨à§à¦¤',
+    'খুশি',
+    'ভালোবাসা',
+    'স্নেহ',
+    'অভিমান',
+    'দুঃখ',
+    'রাগ',
+    'উদ্বেগ',
+    'ক্লান্তি',
+    'রসিকতা',
+    'কৃতজ্ঞতা',
+    'কৌতূহল',
+    'ভয় দেখানো',
+    'অনুনয়',
+    'সম্মতি',
+    'শান্ত',
   ];
   if (valid.includes(trimmed)) return trimmed;
 
   const lower = raw.toLowerCase();
-  if (/(angry|rag|à¦°à¦¾à¦—)/.test(lower)) return 'à¦°à¦¾à¦—';
-  if (/(threat|blackmail|pressure|warn|à¦­à§Ÿ|à¦šà¦¾à¦ª)/.test(lower)) return 'à¦­à§Ÿ à¦¦à§‡à¦–à¦¾à¦¨à§‹';
-  if (/(plead|convince|sorry|à¦…à¦¨à§à¦¨à§Ÿ|à¦•à§à¦·à¦®à¦¾)/.test(lower)) return 'à¦…à¦¨à§à¦¨à§Ÿ';
-  if (/(agree|accept|à¦¸à¦®à§à¦®à¦¤à¦¿|à¦°à¦¾à¦œà¦¿)/.test(lower)) return 'à¦¸à¦®à§à¦®à¦¤à¦¿';
-  if (/(love|à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾)/.test(lower)) return 'à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾';
-  if (/(affection|care|à¦¸à§à¦¨à§‡à¦¹)/.test(lower)) return 'à¦¸à§à¦¨à§‡à¦¹';
-  if (/(sulky|à¦…à¦­à¦¿à¦®à¦¾à¦¨)/.test(lower)) return 'à¦…à¦­à¦¿à¦®à¦¾à¦¨';
-  if (/(sad|à¦¦à§à¦ƒà¦–)/.test(lower)) return 'à¦¦à§à¦ƒà¦–';
-  if (/(worry|à¦‰à¦¦à§à¦¬à§‡à¦—)/.test(lower)) return 'à¦‰à¦¦à§à¦¬à§‡à¦—';
-  if (/(happy|à¦–à§à¦¶à¦¿)/.test(lower)) return 'à¦–à§à¦¶à¦¿';
-  return 'à¦¶à¦¾à¦¨à§à¦¤';
+  if (/(angry|rag|রাগ)/.test(lower)) return 'রাগ';
+  if (/(threat|blackmail|pressure|warn|ভয়|চাপ)/.test(lower)) return 'ভয় দেখানো';
+  if (/(plead|convince|sorry|অনুনয়|ক্ষমা)/.test(lower)) return 'অনুনয়';
+  if (/(agree|accept|সম্মতি|রাজি)/.test(lower)) return 'সম্মতি';
+  if (/(love|ভালোবাসা)/.test(lower)) return 'ভালোবাসা';
+  if (/(affection|care|স্নেহ)/.test(lower)) return 'স্নেহ';
+  if (/(sulky|অভিমান)/.test(lower)) return 'অভিমান';
+  if (/(sad|দুঃখ)/.test(lower)) return 'দুঃখ';
+  if (/(worry|উদ্বেগ)/.test(lower)) return 'উদ্বেগ';
+  if (/(happy|খুশি)/.test(lower)) return 'খুশি';
+  return 'শান্ত';
 }
 
 function normalizeRelation(raw?: string): PersonaRelation {
   const s = (raw || '').toLowerCase().trim();
-  if (/(mother|mom|ammu|à¦®à¦¾)/.test(s)) return 'mother';
-  if (/(father|dad|abbu|à¦¬à¦¾à¦¬à¦¾)/.test(s)) return 'father';
-  if (/(sibling|brother|sister|à¦­à¦¾à¦‡|à¦¬à§‹à¦¨|à¦†à¦ªà§)/.test(s)) return 'sibling';
-  if (/(friend|bondhu|dost|à¦¬à¦¨à§à¦§à§)/.test(s)) return 'friend';
-  if (/(romantic|gf|bf|girlfriend|boyfriend|à¦ªà§à¦°à§‡à¦®)/.test(s)) return 'romantic';
-  if (/(spouse|wife|husband|bou|jamai|à¦¬à¦‰|à¦œà¦¾à¦®à¦¾à¦‡|à¦¸à§à¦¤à§à¦°à§€|à¦¸à§à¦¬à¦¾à¦®à§€)/.test(s)) return 'spouse';
-  if (/(mentor|teacher|sir|à¦¶à¦¿à¦•à§à¦·à¦•)/.test(s)) return 'mentor';
+  if (/(spouse|wife|husband|bou|jamai|swami|স্ত্রী|স্বামী|জামাই|বউ)/.test(s)) return 'spouse';
+  if (/(romantic|gf|bf|girlfriend|boyfriend|প্রেমিকা|প্রেমিক|প্রেম)/.test(s)) return 'romantic';
+  if (/(mother|mom|ammu|amma|মায়ের|জননী|(?:^|[^a-z\u0980-\u09FF])মা(?:$|[^a-z\u0980-\u09FF]))/.test(s)) {
+    return 'mother';
+  }
+  if (/(father|dad|abbu|abba|বাবা|পিতা)/.test(s)) return 'father';
+  if (/(sibling|brother|sister|ভাই|বোন|আপু)/.test(s)) return 'sibling';
+  if (/(friend|bondhu|dost|বন্ধু|দোস্ত)/.test(s)) return 'friend';
+  if (/(mentor|teacher|sir|শিক্ষক)/.test(s)) return 'mentor';
   return 'story';
 }
 
@@ -809,13 +1086,13 @@ function parseEmotionsArray(
         ? rawKw.split(',').map((s) => s.trim()).filter(Boolean)
         : [sig];
 
-    const desc = String(em.descriptionBn || em.description || `${sig} à¦…à¦¨à§à¦­à§‚à¦¤à¦¿`).trim();
+    const desc = String(em.descriptionBn || em.description || `${sig} অনুভূতি`).trim();
     const replyTpl = String(
       em.replyTemplate ||
         em.reply ||
-        `à¦¤à§‹à¦®à¦¾à¦° à¦•à¦¥à¦¾à¦° à¦­à§‡à¦¤à¦° "{word}" à¦†à¦° ${sig}-à¦à¦° à¦…à¦¨à§à¦­à§‚à¦¤à¦¿à¦Ÿà¦¾ à¦¬à§‡à¦¶ à¦¬à§à¦à¦¤à§‡ à¦ªà¦¾à¦°à¦›à¦¿ {userName}!`
+        `তোমার কথার ভেতর "{word}" আর ${sig}-এর অনুভূতিটা বেশ বুঝতে পারছি {userName}!`
     ).trim();
-    const actText = String(em.actionText || em.action || `${mood} à¦­à¦™à§à¦—à¦¿à¦¤à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹`).trim();
+    const actText = String(em.actionText || em.action || `${mood} ভঙ্গিতে তাকালো`).trim();
 
     const checkText = `${sig} ${mood} ${desc} ${kwList.join(' ')} ${replyTpl} ${actText}`;
     if (detectSensitiveOrInappropriateInput(checkText)) {
@@ -914,11 +1191,24 @@ export function parseJsonDataset(
   scenarios: TrainedScenario[];
   characters: RoleplayCharacter[];
   customEmotions: CustomEmotionDefinition[];
+  selfLearnedPatterns: MLSelfLearnedPattern[];
   skippedUnsafeCount: number;
   error?: string;
 } {
   try {
     const parsed = JSON.parse(rawJson) as {
+      selfLearnedPatterns?: Array<{
+        id?: string;
+        relation?: string;
+        triggerTokens?: string[];
+        prompt?: string;
+        response?: string;
+        emotion?: string;
+        signalEmotion?: string;
+        action?: string;
+        score?: number;
+        hitCount?: number;
+      }>;
       customEmotions?: Array<{
         id?: string;
         signal?: string;
@@ -1040,6 +1330,7 @@ export function parseJsonDataset(
     const scenarios: TrainedScenario[] = [];
     const characters: RoleplayCharacter[] = [];
     const customEmotions: CustomEmotionDefinition[] = [];
+    const selfLearnedPatterns: MLSelfLearnedPattern[] = [];
     let skippedUnsafeCount = 0;
     const stamp = Date.now();
 
@@ -1070,8 +1361,8 @@ export function parseJsonDataset(
     if (Array.isArray(parsed.characters)) {
       parsed.characters.forEach((ch, idx) => {
         if (!ch.name) return;
-        const summary = String(ch.personalitySummary || ch.personality || `${ch.name} â€” JSON Trained Role`).trim();
-        const greeting = String(ch.greeting || `à¦¹à§à¦¯à¦¾à¦²à§‹, à¦†à¦®à¦¿ ${ch.name}à¥¤ à¦šà¦²à§‹ à¦•à¦¥à¦¾ à¦¬à¦²à¦¿!`).trim();
+        const summary = String(ch.personalitySummary || ch.personality || `${ch.name} — JSON Trained Role`).trim();
+        const greeting = String(ch.greeting || `হ্যালো, আমি ${ch.name}। চলো কথা বলি!`).trim();
         if (
           detectSensitiveOrInappropriateInput(ch.name) ||
           detectSensitiveOrInappropriateInput(summary) ||
@@ -1083,14 +1374,14 @@ export function parseJsonDataset(
         const relation = normalizeRelation(ch.relation || ch.role);
         const gender: VoiceGender =
           ch.gender || (relation === 'father' ? 'male' : 'female');
-        const ageText = typeof ch.age === 'number' ? `, à¦¬à§Ÿà¦¸ ${ch.age}` : '';
+        const ageText = typeof ch.age === 'number' ? `, বয়স ${ch.age}` : '';
 
         characters.push({
           id: ch.id ? String(ch.id) : `json-char-${stamp}-${idx}`,
           name: String(ch.name).trim(),
           englishName: ch.englishName ? String(ch.englishName).trim() : String(ch.name).trim(),
           role: ch.role ? String(ch.role).trim() : `${relation}${ageText}`,
-          setting: ch.setting ? String(ch.setting).trim() : 'à¦†à¦®à¦¾à¦¦à§‡à¦° à¦¬à¦¾à¦¸à¦¾à§Ÿ',
+          setting: ch.setting ? String(ch.setting).trim() : 'আমাদের বাসায়',
           eraOrVibe: summary,
           gender,
           age: typeof ch.age === 'number' ? ch.age : undefined,
@@ -1101,11 +1392,11 @@ export function parseJsonDataset(
           greeting,
           greetingAction: ch.greetingAction
             ? String(ch.greetingAction).trim()
-            : 'à¦¸à§à¦¬à¦¾à¦­à¦¾à¦¬à¦¿à¦• à¦­à¦™à§à¦—à¦¿à¦¤à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹',
+            : 'স্বাভাবিক ভঙ্গিতে তাকালো',
           initialFollowUps:
             Array.isArray(ch.initialFollowUps) && ch.initialFollowUps.length > 0
               ? ch.initialFollowUps.map(String)
-              : ['à¦•à§‡à¦®à¦¨ à¦†à¦›à§‹?', 'à¦†à¦œ à¦•à§€ à¦•à¦°à¦›à§‹?', 'à¦à¦•à¦Ÿà¦¾ à¦•à¦¥à¦¾ à¦¬à¦²à¦¿?'],
+              : ['কেমন আছো?', 'আজ কী করছো?', 'একটা কথা বলি?'],
           voiceDefaults:
             gender === 'female'
               ? { pitch: 1.18, rate: 0.96, timbreHz: 242 }
@@ -1114,10 +1405,10 @@ export function parseJsonDataset(
           topics: [],
           fallbacks: [
             {
-              text: `à¦¹à§à¦®, à¦¬à§à¦à¦¤à§‡ à¦ªà¦¾à¦°à¦›à¦¿ {userName}à¥¤ à¦à¦°à¦ªà¦° à¦•à§€ à¦¹à¦²à§‹ à¦–à§à¦²à§‡ à¦¬à¦²à§‹ à¦¤à§‹!`,
-              action: 'à¦®à¦¨à§‹à¦¯à§‹à¦— à¦¦à¦¿à§Ÿà§‡ à¦¶à§à¦¨à¦›à§‡',
-              mood: relation === 'mother' || relation === 'father' ? 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²' : 'à¦¶à¦¾à¦¨à§à¦¤',
-              followUps: ['à¦¤à¦¾à¦°à¦ªà¦° à¦¶à§à¦¨à§‹...', 'à¦à¦•à¦Ÿà¦¾ à¦…à¦¨à§à¦°à§‹à¦§ à¦›à¦¿à¦²'],
+              text: `হুম, বুঝতে পারছি {userName}। এরপর কী হলো খুলে বলো তো!`,
+              action: 'মনোযোগ দিয়ে শুনছে',
+              mood: relation === 'mother' || relation === 'father' ? 'স্নেহশীল' : 'শান্ত',
+              followUps: ['তারপর শুনো...', 'একটা অনুরোধ ছিল'],
             },
           ],
           isCustom: true,
@@ -1141,8 +1432,8 @@ export function parseJsonDataset(
             phase: pair.phase ? normalizePhaseName(pair.phase) : undefined,
             prompt: String(pair.userPrompt).trim(),
             response: String(pair.characterReply).trim(),
-            action: pair.action ? String(pair.action) : 'à¦¸à§à¦¬à¦¾à¦­à¦¾à¦¬à¦¿à¦• à¦­à¦™à§à¦—à¦¿à¦¤à§‡ à¦‰à¦¤à§à¦¤à¦° à¦¦à¦¿à¦²',
-            emotion: normalizeCharacterMood(pair.mood || pair.emotion, 'à¦¶à¦¾à¦¨à§à¦¤', allCustomEmotions),
+            action: pair.action ? String(pair.action) : 'স্বাভাবিক ভঙ্গিতে উত্তর দিল',
+            emotion: normalizeCharacterMood(pair.mood || pair.emotion, 'শান্ত', allCustomEmotions),
             followUps: Array.isArray(pair.followUps) ? pair.followUps.map(String) : undefined,
             source: 'JSON Natural Pair',
           });
@@ -1174,8 +1465,8 @@ export function parseJsonDataset(
               prompt: String(directPrompt).trim(),
               keywords: keywords.length > 0 ? keywords : undefined,
               response: String(directReply).trim(),
-              action: conv.action ? String(conv.action) : 'à¦¸à§à¦¬à¦¾à¦­à¦¾à¦¬à¦¿à¦• à¦­à¦™à§à¦—à¦¿à¦¤à§‡ à¦‰à¦¤à§à¦¤à¦° à¦¦à¦¿à¦²',
-              emotion: normalizeCharacterMood(conv.mood || conv.emotion, 'à¦¶à¦¾à¦¨à§à¦¤', allCustomEmotions),
+              action: conv.action ? String(conv.action) : 'স্বাভাবিক ভঙ্গিতে উত্তর দিল',
+              emotion: normalizeCharacterMood(conv.mood || conv.emotion, 'শান্ত', allCustomEmotions),
               followUps: Array.isArray(conv.followUps) ? conv.followUps.map(String) : undefined,
               source: conv.labelBn || conv.topic || 'JSON Dialogue',
             });
@@ -1203,7 +1494,7 @@ export function parseJsonDataset(
               action: v.action ? String(v.action) : undefined,
               emotion: normalizeCharacterMood(
                 v.mood || v.emotion || conv.mood || conv.emotion,
-                'à¦¶à¦¾à¦¨à§à¦¤',
+                'শান্ত',
                 allCustomEmotions
               ),
               followUps: Array.isArray(v.followUps) ? v.followUps.map(String) : undefined,
@@ -1233,7 +1524,7 @@ export function parseJsonDataset(
               : Array.isArray(p.dialogues)
                 ? p.dialogues
                 : [];
-          const phaseMood = normalizeCharacterMood(p.mood || p.emotion, 'à¦¶à¦¾à¦¨à§à¦¤', allCustomEmotions);
+          const phaseMood = normalizeCharacterMood(p.mood || p.emotion, 'শান্ত', allCustomEmotions);
           const safeResponses: DialogueVariant[] = [];
           list.forEach((v) => {
             if (!v.text) return;
@@ -1244,7 +1535,7 @@ export function parseJsonDataset(
             }
             safeResponses.push({
               text: replyText,
-              action: v.action ? String(v.action) : 'à¦¸à§à¦¬à¦¾à¦­à¦¾à¦¬à¦¿à¦• à¦­à¦™à§à¦—à¦¿à¦¤à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹',
+              action: v.action ? String(v.action) : 'স্বাভাবিক ভঙ্গিতে তাকালো',
               mood: normalizeCharacterMood(v.mood || v.emotion, phaseMood, allCustomEmotions),
               followUps: Array.isArray(v.followUps) ? v.followUps.map(String) : [],
             });
@@ -1259,7 +1550,7 @@ export function parseJsonDataset(
           if (phaseBeat || safeResponses.length > 0) {
             safePhases.push({
               phase: normalizePhaseName(p.phase),
-              beat: phaseBeat || 'à¦—à¦²à§à¦ªà§‡à¦° à¦ªà¦°à¦¬à¦°à§à¦¤à§€ à¦…à¦‚à¦¶',
+              beat: phaseBeat || 'গল্পের পরবর্তী অংশ',
               emotion: phaseMood,
               phaseTrigger: p.phaseTrigger,
               keywords: Array.isArray(p.keywords) ? p.keywords.map(String) : undefined,
@@ -1292,12 +1583,44 @@ export function parseJsonDataset(
       });
     }
 
+    if (Array.isArray(parsed.selfLearnedPatterns)) {
+      parsed.selfLearnedPatterns.forEach((pat, idx) => {
+        if (!pat || !pat.prompt || !pat.response) return;
+        const cleanPrompt = String(pat.prompt).trim();
+        const cleanResponse = String(pat.response).trim();
+        if (
+          detectSensitiveOrInappropriateInput(cleanPrompt) ||
+          detectSensitiveOrInappropriateInput(cleanResponse)
+        ) {
+          skippedUnsafeCount++;
+          return;
+        }
+        const tokens = Array.isArray(pat.triggerTokens)
+          ? pat.triggerTokens.map(String).map((t) => t.trim()).filter(Boolean)
+          : normalizeBengaliText(cleanPrompt).split(/\s+/).filter(Boolean).slice(0, 6);
+        selfLearnedPatterns.push({
+          id: pat.id ? String(pat.id) : `json-ml-pat-${stamp}-${idx}`,
+          relation:
+            pat.relation && pat.relation !== 'any' ? normalizeRelation(pat.relation) : 'any',
+          triggerTokens: tokens,
+          prompt: cleanPrompt,
+          response: cleanResponse,
+          emotion: normalizeCharacterMood(pat.emotion, 'শান্ত', allCustomEmotions),
+          signalEmotion: normalizeEmotionSignal(pat.signalEmotion, allCustomEmotions),
+          action: pat.action ? String(pat.action) : 'স্বাভাবিক ভঙ্গিতে তাকিয়ে উত্তর দিল',
+          score: typeof pat.score === 'number' ? pat.score : 1,
+          hitCount: typeof pat.hitCount === 'number' ? pat.hitCount : 0,
+        });
+      });
+    }
+
     return {
       conversations,
       extractedWords,
       scenarios,
       characters,
       customEmotions,
+      selfLearnedPatterns,
       skippedUnsafeCount,
     };
   } catch {
@@ -1307,6 +1630,7 @@ export function parseJsonDataset(
       scenarios: [],
       characters: [],
       customEmotions: [],
+      selfLearnedPatterns: [],
       skippedUnsafeCount: 0,
       error:
         'Invalid JSON format. Please upload or paste valid JSON containing scenarios, characters, conversations, naturalPairs, or lexicon.',
@@ -1315,12 +1639,12 @@ export function parseJsonDataset(
 }
 
 function toAsciiDigits(str: string): string {
-  const bn = 'à§¦à§§à§¨à§©à§ªà§«à§¬à§­à§®à§¯';
-  return str.replace(/[à§¦-à§¯]/g, (d) => String(bn.indexOf(d)));
+  const bn = '০১২৩৪৫৬৭৮৯';
+  return str.replace(/[০-৯]/g, (d) => String(bn.indexOf(d)));
 }
 
 function capitalizeWord(str: string): string {
-  const trimmed = str.trim().replace(/[à¥¤,!?.$]/g, '');
+  const trimmed = str.trim().replace(/[।,!?.$]/g, '');
   if (!trimmed) return trimmed;
   if (/^[a-zA-Z]/.test(trimmed)) {
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
@@ -1342,7 +1666,7 @@ export function parseRoleplaySetupPrompt(rawInput: string): {
   // 1. User name
   let userName: string | undefined;
   const userNameMatch =
-    clean.match(/(?:amar\s+nam|amar\s+naam|my\s+name\s+is|i\s+am|à¦†à¦®à¦¿\s+à¦¹à¦²à¦¾à¦®|à¦†à¦®à¦¾à¦°\s+à¦¨à¦¾à¦®)\s+([^\s,à¥¤.!?]+)/i);
+    clean.match(/(?:amar\s+nam|amar\s+naam|my\s+name\s+is|i\s+am|আমি\s+হলাম|আমার\s+নাম)\s+([^\s,।.!?]+)/i);
   if (userNameMatch?.[1]) {
     userName = capitalizeWord(userNameMatch[1]);
   }
@@ -1351,54 +1675,58 @@ export function parseRoleplaySetupPrompt(rawInput: string): {
   let relation: PersonaRelation = 'story';
   let gender: VoiceGender = 'female';
 
-  if (/(mayer|maayer|ammu|amma|\bmaa\b|\bmother\b|\bmom\b|à¦®à¦¾à§Ÿà§‡à¦°|à¦®à¦¾\b|à¦†à¦®à§à¦®à§)/i.test(lower)) {
+  if (
+    /(mayer|maayer|ammu|amma|\bmaa\b|\bmother\b|\bmom\b|মায়ের|(?:^|[\s,।.!?])মা(?:$|[\s,।.!?])|আম্মু)/i.test(
+      lower
+    )
+  ) {
     relation = 'mother';
     gender = 'female';
-  } else if (/(babar|abbu|abba|\bfather\b|\bdad\b|à¦¬à¦¾à¦¬à¦¾à¦°|à¦†à¦¬à§à¦¬à§)/i.test(lower)) {
+  } else if (/(babar|abbu|abba|\bfather\b|\bdad\b|বাবার|আব্বু)/i.test(lower)) {
     relation = 'father';
     gender = 'male';
-  } else if (/(bou|ginni|wife|stri|à¦¬à¦‰|à¦¸à§à¦¤à§à¦°à§€)/i.test(lower)) {
+  } else if (/(bou|ginni|wife|stri|বউ|স্ত্রী)/i.test(lower)) {
     relation = 'spouse';
     gender = 'female';
-  } else if (/(jamai|swami|husband|à¦œà¦¾à¦®à¦¾à¦‡|à¦¸à§à¦¬à¦¾à¦®à§€)/i.test(lower)) {
+  } else if (/(jamai|swami|husband|জামাই|স্বামী)/i.test(lower)) {
     relation = 'spouse';
     gender = 'male';
-  } else if (/(gf|girlfriend|premika|à¦—à¦¾à¦°à§à¦²à¦«à§à¦°à§‡à¦¨à§à¦¡|à¦ªà§à¦°à§‡à¦®à¦¿à¦•à¦¾)/i.test(lower)) {
+  } else if (/(gf|girlfriend|premika|গার্লফ্রেন্ড|প্রেমিকা)/i.test(lower)) {
     relation = 'romantic';
     gender = 'female';
-  } else if (/(bf|boyfriend|premik|à¦¬à§Ÿà¦«à§à¦°à§‡à¦¨à§à¦¡|à¦ªà§à¦°à§‡à¦®à¦¿à¦•)/i.test(lower)) {
+  } else if (/(bf|boyfriend|premik|বয়ফ্রেন্ড|প্রেমিক)/i.test(lower)) {
     relation = 'romantic';
     gender = 'male';
-  } else if (/(bon|apu|sister|à¦¬à§‹à¦¨|à¦†à¦ªà§)/i.test(lower)) {
+  } else if (/(bon|apu|sister|বোন|আপু)/i.test(lower)) {
     relation = 'sibling';
     gender = 'female';
-  } else if (/(bhai|vaia|bhaiya|brother|à¦­à¦¾à¦‡)/i.test(lower)) {
+  } else if (/(bhai|vaia|bhaiya|brother|ভাই)/i.test(lower)) {
     relation = 'sibling';
     gender = 'male';
-  } else if (/(bondhu|dost|friend|à¦¬à¦¨à§à¦§à§|à¦¦à§‹à¦¸à§à¦¤)/i.test(lower)) {
+  } else if (/(bondhu|dost|friend|বন্ধু|দোস্ত)/i.test(lower)) {
     relation = 'friend';
-    gender = /\b(girl|meye|bandhobi|à¦¬à¦¾à¦¨à§à¦§à¦¬à§€)\b/i.test(lower) ? 'female' : 'male';
-  } else if (/(teacher|sir|mam|mentor|à¦¶à¦¿à¦•à§à¦·à¦•|à¦¸à§à¦¯à¦¾à¦°)/i.test(lower)) {
+    gender = /\b(girl|meye|bandhobi|বান্ধবী)\b/i.test(lower) ? 'female' : 'male';
+  } else if (/(teacher|sir|mam|mentor|শিক্ষক|স্যার)/i.test(lower)) {
     relation = 'mentor';
-    gender = /\b(mam|miss|madam|à¦®à§à¦¯à¦¾à¦®)\b/i.test(lower) ? 'female' : 'male';
+    gender = /\b(mam|miss|madam|ম্যাম)\b/i.test(lower) ? 'female' : 'male';
   }
 
   // 3. Character name
   const defaultNameByRelation: Record<PersonaRelation, string> = {
-    mother: 'à¦°à¦¾à¦¬à§‡à§Ÿà¦¾ (à¦†à¦®à§à¦®à§)',
-    father: 'à¦•à¦°à¦¿à¦® (à¦†à¦¬à§à¦¬à§)',
-    sibling: gender === 'female' ? 'à¦®à¦¿à¦® (à¦†à¦ªà§)' : 'à¦°à¦¾à¦«à¦¿ (à¦­à¦¾à¦‡)',
-    friend: 'à¦¸à¦¾à¦¦à¦®à¦¾à¦¨ (à¦¬à¦¨à§à¦§à§)',
-    romantic: gender === 'female' ? 'à¦¨à§€à¦²à¦¾' : 'à¦†à¦°à¦¿à§Ÿà¦¾à¦¨',
-    spouse: gender === 'female' ? 'à¦¤à¦¾à¦¨à¦¹à¦¾' : 'à¦¤à¦¾à¦¨à¦­à§€à¦°',
-    mentor: 'à¦…à¦§à§à¦¯à¦¾à¦ªà¦•',
-    story: 'à¦•à¦¥à¦¾à¦¸à¦™à§à¦—à§€',
+    mother: 'রাবেয়া (আম্মু)',
+    father: 'করিম (আব্বু)',
+    sibling: gender === 'female' ? 'মিম (আপু)' : 'রাফি (ভাই)',
+    friend: 'সাদমান (বন্ধু)',
+    romantic: gender === 'female' ? 'নীলা' : 'আরিয়ান',
+    spouse: gender === 'female' ? 'তানহা' : 'তানভীর',
+    mentor: 'অধ্যাপক',
+    story: 'কথাসঙ্গী',
   };
 
   let characterName = defaultNameByRelation[relation];
   const charNameMatch =
     clean.match(
-      /(?:tomar\s+nam|tomar\s+naam|your\s+name\s+is|character\s+name|à¦¤à§‹à¦®à¦¾à¦°\s+à¦¨à¦¾à¦®)\s+([^\s,à¥¤.!?]+)/i
+      /(?:tomar\s+nam|tomar\s+naam|your\s+name\s+is|character\s+name|তোমার\s+নাম)\s+([^\s,।.!?]+)/i
     );
   if (charNameMatch?.[1]) {
     characterName = capitalizeWord(charNameMatch[1]);
@@ -1407,7 +1735,7 @@ export function parseRoleplaySetupPrompt(rawInput: string): {
   // 4. Character Age
   let characterAge: number | undefined;
   const ascii = toAsciiDigits(clean);
-  const ageMatch = ascii.match(/(?:boyosh|boiosh|age|à¦¬à§Ÿà¦¸)\s*[:=-]?\s*\$?(\d{1,2})/i);
+  const ageMatch = ascii.match(/(?:boyosh|boiosh|age|বয়স)\s*[:=-]?\s*\$?(\d{1,2})/i);
   if (ageMatch?.[1]) {
     characterAge = parseInt(ageMatch[1], 10);
   }
@@ -1415,7 +1743,7 @@ export function parseRoleplaySetupPrompt(rawInput: string): {
   // 5. Personality traits
   let personality: string | undefined;
   const traitMatch = clean.match(
-    /(?:tomar\s+choritro|choritro|nature|personality|à¦¸à§à¦¬à¦­à¦¾à¦¬|à¦šà¦°à¦¿à¦¤à§à¦°)\s*(?:holo|hobe|à¦¹à¦²à§‹|à¦¹à¦¬à§‡|:)?\s*([^à¥¤.!?\n]+)/i
+    /(?:tomar\s+choritro|choritro|nature|personality|স্বভাব|চরিত্র)\s*(?:holo|hobe|হলো|হবে|:)?\s*([^।.!?\n]+)/i
   );
   if (traitMatch?.[1]) {
     personality = traitMatch[1].trim();
@@ -1424,21 +1752,21 @@ export function parseRoleplaySetupPrompt(rawInput: string): {
   // 6. Scenario detection
   let scenarioText: string | undefined;
   const scenarioMatch = clean.match(
-    /(?:scenario|golpo|kahini|story|à¦¸à¦¿à¦¨à¦¾à¦°à¦¿à¦“|à¦•à¦¾à¦¹à¦¿à¦¨à§€|à¦—à¦²à§à¦ª)\s*(?:holo|hobe|à¦¹à¦²à§‹|à¦¹à¦¬à§‡|:)?\s*(.+)$/i
+    /(?:scenario|golpo|kahini|story|সিনারিও|কাহিনী|গল্প)\s*(?:holo|hobe|হলো|হবে|:)?\s*(.+)$/i
   );
   if (scenarioMatch?.[1] && scenarioMatch[1].trim().length > 8) {
     scenarioText = scenarioMatch[1].trim();
   }
 
   const defaultSetting: Record<PersonaRelation, string> = {
-    mother: 'à¦¬à¦¾à¦¸à¦¾à§Ÿ (Home)',
-    father: 'à¦¬à¦¾à¦¸à¦¾à¦° à¦¬à¦¸à¦¾à¦° à¦˜à¦°à§‡',
-    sibling: 'à¦¬à¦¾à¦¸à¦¾à¦° à¦›à¦¾à¦¦à§‡ à¦“ à¦¬à¦¸à¦¾à¦° à¦˜à¦°à§‡',
-    friend: 'à¦•à§à¦¯à¦¾à¦®à§à¦ªà¦¾à¦¸ à¦®à§‹à§œà§‡à¦° à¦Ÿà¦‚ à¦¦à§‹à¦•à¦¾à¦¨',
-    romantic: 'à¦¸à¦¨à§à¦§à§à¦¯à¦¾à¦° à¦«à§‹à¦¨à¦¾à¦²à¦¾à¦ª à¦“ à¦²à§‡à¦•à§‡à¦° à¦ªà¦¾à§œ',
-    spouse: 'à¦†à¦®à¦¾à¦¦à§‡à¦° à¦¸à¦¾à¦œà¦¾à¦¨à§‹ à¦¬à¦¾à¦¸à¦¾à§Ÿ',
-    mentor: 'à¦—à§à¦°à¦¨à§à¦¥à¦¾à¦—à¦¾à¦° à¦“ à¦ªà§œà¦¾à¦° à¦•à¦•à§à¦·',
-    story: 'à¦¸à¦¨à§à¦§à§à¦¯à¦¾à¦° à¦¶à¦¾à¦¨à§à¦¤ à¦•à§à¦¯à¦¾à¦«à§‡',
+    mother: 'বাসায় (Home)',
+    father: 'বাসার বসার ঘরে',
+    sibling: 'বাসার ছাদে ও বসার ঘরে',
+    friend: 'ক্যাম্পাস মোড়ের টং দোকান',
+    romantic: 'সন্ধ্যার ফোনালাপ ও লেকের পাড়',
+    spouse: 'আমাদের সাজানো বাসায়',
+    mentor: 'গ্রন্থাগার ও পড়ার কক্ষ',
+    story: 'সন্ধ্যার শান্ত ক্যাফে',
   };
 
   return {
@@ -1466,7 +1794,7 @@ export function parseScenarioArc(
 ): ScenarioArc {
   const clean = rawScenario.trim();
   const clauses = clean
-    .split(/(?:à¦¤à¦¾à¦°à¦ªà¦°|à¦à¦°à¦ªà¦°|à¦¶à§‡à¦·à§‡|à¦…à¦¬à¦¶à§‡à¦·à§‡|tarpor|erpor|then|finally|and then|[à¥¤,.!?])+/)
+    .split(/(?:তারপর|এরপর|শেষে|অবশেষে|tarpor|erpor|then|finally|and then|[।,.!?])+/)
     .map((s) => s.trim())
     .filter((s) => s.length >= 3);
 
@@ -1474,13 +1802,13 @@ export function parseScenarioArc(
   const middleBeat =
     clauses.length >= 3
       ? clauses.slice(1, -1).join(', ')
-      : clauses[1] || 'à¦—à¦²à§à¦ªà¦Ÿà¦¿ à¦†à¦¬à§‡à¦— à¦“ à¦¬à¦¾à¦¸à§à¦¤à¦¬ à¦•à¦¥à§‹à¦ªà¦•à¦¥à¦¨à§‡à¦° à¦®à¦§à§à¦¯ à¦¦à¦¿à§Ÿà§‡ à¦à¦—à¦¿à§Ÿà§‡ à¦¯à¦¾à¦¬à§‡';
+      : clauses[1] || 'গল্পটি আবেগ ও বাস্তব কথোপকথনের মধ্য দিয়ে এগিয়ে যাবে';
   const endingBeat =
     clauses.length >= 2
       ? clauses[clauses.length - 1]
       : relation === 'mother'
-        ? 'à¦¸à¦¬ à¦­à§à¦² à¦¬à§‹à¦à¦¾à¦¬à§à¦à¦¿ à¦¬à¦¾ à¦¬à§à¦¯à¦¸à§à¦¤à¦¤à¦¾ à¦ªà§‡à¦°à¦¿à§Ÿà§‡ à¦®à¦¾-à¦¸à¦¨à§à¦¤à¦¾à¦¨à§‡à¦° à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾à§Ÿ à¦¸à¦®à¦¾à¦ªà§à¦¤à¦¿'
-        : 'à¦—à¦­à§€à¦° à¦†à¦¨à§à¦¤à¦°à¦¿à¦•à¦¤à¦¾ à¦“ à¦¸à§à¦¨à§à¦¦à¦° à¦¸à¦®à¦à§‹à¦¤à¦¾à§Ÿ à¦¦à§ƒà¦¶à§à¦¯à§‡à¦° à¦¸à¦®à¦¾à¦ªà§à¦¤à¦¿';
+        ? 'সব ভুল বোঝাবুঝি বা ব্যস্ততা পেরিয়ে মা-সন্তানের ভালোবাসায় সমাপ্তি'
+        : 'গভীর আন্তরিকতা ও সুন্দর সমঝোতায় দৃশ্যের সমাপ্তি';
 
   return {
     summary: clean,
@@ -1515,25 +1843,25 @@ export function computeEmotionalVoiceAdjustment(
   }
 
   switch (mood) {
-    case 'à¦‰à§Žà¦«à§à¦²à§à¦²':
-    case 'à¦°à¦¸à¦¿à¦•':
-    case 'à¦¸à¦®à§à¦®à¦¤ à¦“ à¦–à§à¦¶à¦¿':
+    case 'উৎফুল্ল':
+    case 'রসিক':
+    case 'সম্মত ও খুশি':
       return { pitchDelta: 0.06, rateFactor: 1.05 };
-    case 'à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾à¦®à§Ÿ':
-    case 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²':
-    case 'à¦¨à¦°à¦® à¦¹à¦“à§Ÿà¦¾':
+    case 'ভালোবাসাময়':
+    case 'স্নেহশীল':
+    case 'নরম হওয়া':
       return { pitchDelta: 0.02, rateFactor: 0.94 };
-    case 'à¦…à¦­à¦¿à¦®à¦¾à¦¨à§€':
+    case 'অভিমানী':
       return { pitchDelta: 0.04, rateFactor: 0.92 };
-    case 'à¦¶à¦¾à¦¸à¦¨à¦®à¦¿à¦¶à§à¦°à¦¿à¦¤ à¦¸à§à¦¨à§‡à¦¹':
-    case 'à¦šà¦¾à¦ª à¦“ à¦¶à¦°à§à¦¤':
+    case 'শাসনমিশ্রিত স্নেহ':
+    case 'চাপ ও শর্ত':
       return { pitchDelta: -0.03, rateFactor: 0.98 };
-    case 'à¦•à§à¦²à¦¾à¦¨à§à¦¤':
-    case 'à¦¬à§à¦¯à¦¥à¦¿à¦¤':
+    case 'ক্লান্ত':
+    case 'ব্যথিত':
       return { pitchDelta: -0.05, rateFactor: 0.87 };
-    case 'à¦‰à¦¦à§à¦¬à¦¿à¦—à§à¦¨':
-    case 'à¦°à¦¾à¦—à¦¾à¦¨à§à¦¬à¦¿à¦¤':
-    case 'à¦•à¦ à§‹à¦° à¦¶à¦¾à¦¸à¦¨':
+    case 'উদ্বিগ্ন':
+    case 'রাগান্বিত':
+    case 'কঠোর শাসন':
       return { pitchDelta: 0.05, rateFactor: 1.08 };
     default:
       return { pitchDelta: 0, rateFactor: 1.0 };

@@ -116,6 +116,7 @@ export interface TrainedScenario {
 
 export interface MLFeedbackSample {
   id: string;
+  messageId?: string;
   input: string;
   replyKey: string;
   replyText: string;
@@ -175,6 +176,26 @@ export interface RoleplaySetupDraft {
   setting?: string;
 }
 
+export type ConversationalIntent =
+  | 'greeting'
+  | 'farewell'
+  | 'meta_feedback'
+  | 'question_why'
+  | 'question_what'
+  | 'question_where'
+  | 'question_when'
+  | 'question_how'
+  | 'question_yes_no'
+  | 'confirmation_yes'
+  | 'denial_no'
+  | 'continuation'
+  | 'apology'
+  | 'affection'
+  | 'complaint_vent'
+  | 'request_help'
+  | 'teasing'
+  | 'statement';
+
 export interface SentenceAnalysis {
   normalizedText: string;
   tokens: string[];
@@ -185,6 +206,21 @@ export interface SentenceAnalysis {
   isQuestion: boolean;
   meaningQueryTarget?: string;
   isSensitiveOrInappropriate?: boolean;
+  intent?: ConversationalIntent;
+  isNegated?: boolean;
+  negatedTerms?: string[];
+  subjectKeywords?: string[];
+  isMetaFeedback?: boolean;
+}
+
+export interface ConversationTurnSnapshot {
+  userText: string;
+  normalizedUserText: string;
+  botReply: string;
+  botQuestion?: string;
+  topic?: string;
+  intent?: ConversationalIntent;
+  subjects?: string[];
 }
 
 export interface DialogueVariant {
@@ -277,6 +313,10 @@ export interface SessionMemory {
   lastUserEmotion?: EmotionSignal;
   lastUnderstoodWords?: string[];
   scenarioArc?: ScenarioArc;
+  recentTurns?: ConversationTurnSnapshot[];
+  pendingQuestion?: string;
+  pendingTopic?: string;
+  mentionedSubjects?: string[];
 }
 
 export interface VoiceSettings {

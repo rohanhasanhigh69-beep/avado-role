@@ -19,12 +19,14 @@ import {
 
 const ML_STOP_WORDS = new Set([
   'আমি',
-  'তুমি',
-  'তুই',
-  'আপনি',
+  'আমাকে',
   'আমার',
+  'তুমি',
+  'তোমাকে',
   'তোমার',
+  'তুই',
   'তোর',
+  'আপনি',
   'এই',
   'ওই',
   'একটা',
@@ -33,11 +35,17 @@ const ML_STOP_WORDS = new Set([
   'কি',
   'হয়',
   'হয়ে',
+  'হয়েছে',
+  'হলো',
+  'হচ্ছে',
+  'হবে',
   'আছে',
   'আছি',
+  'আছো',
   'আর',
   'ও',
   'না',
+  'নেই',
   'তো',
   'যে',
   'এর',
@@ -75,6 +83,14 @@ export function extractMLFeatures(rawText: string): string[] {
   const features: string[] = [...words];
   for (let i = 0; i < words.length - 1; i++) {
     features.push(`${words[i]}_${words[i + 1]}`);
+  }
+  // Subword character 3-grams for Bengali words (>= 4 chars) enable morphological & typo generalization
+  for (const w of words) {
+    if (w.length >= 4 && /[\u0980-\u09FF]/.test(w)) {
+      for (let i = 0; i <= w.length - 3 && i < 6; i++) {
+        features.push(`~${w.slice(i, i + 3)}`);
+      }
+    }
   }
   return features;
 }
@@ -213,16 +229,25 @@ export class LocalMLModel {
       this.addDocument(sampleText, ce.signal, 2);
     }
 
-    // 2. Built-in realistic emotional progression seeds (anger -> pressure/threat -> persuasion -> agreement)
+    // 2. Built-in realistic emotional progression seeds (Bengali + Banglish)
     const builtInEmotionalSeeds: Array<{ text: string; emotion: EmotionSignal }> = [
       { text: 'পড়বো না খেলতে যাবো আজকে যাবই', emotion: 'রাগ' },
       { text: 'কেন পড়বি না তোর পড়তে হবে এখনই বকা', emotion: 'রাগ' },
+      { text: 'অপ্রাসঙ্গিক উত্তর দিচ্ছো বিরক্ত লাগছে ধুর', emotion: 'রাগ' },
       { text: 'তুমি যদি না পড়ো তোমার বাবাকে বলে দিবো শর্ত চাপ', emotion: 'ভয় দেখানো' },
       { text: 'আব্বুকে বলে দিলে বিপদ শাস্তি শর্ত মানতে হবে', emotion: 'ভয় দেখানো' },
       { text: 'প্লিজ মা কথা দিচ্ছি এসে পড়ে নেবো আর দেরি হবে না সরি', emotion: 'অনুনয়' },
       { text: 'কষ্ট করে মানিয়ে নেওয়া কনভিন্স প্লিজ আর রাগ করো না', emotion: 'অনুনয়' },
       { text: 'আচ্ছা ঠিক আছে রাজি হলাম সাবধানে যাও তবে কথা রাখবি', emotion: 'সম্মতি' },
       { text: 'মেনে নিলাম ঠিক আছে মন গলেছে যাও তাহলে', emotion: 'সম্মতি' },
+      { text: 'মন খারাপ ভালো নেই বকা দিয়েছে পরীক্ষা খারাপ হয়েছে কষ্ট', emotion: 'দুঃখ' },
+      { text: 'একদম ভেঙে পড়েছি ভালো লাগছে না একা লাগছে কান্না', emotion: 'দুঃখ' },
+      { text: 'ভালোবাসি অনেক মিস করছি জান সোনা আদর', emotion: 'ভালোবাসা' },
+      { text: 'বস কাজের চাপ প্যারা চিন্তা টেনশন কী করবো', emotion: 'উদ্বেগ' },
+      { text: 'অনেক ক্লান্ত ঘুম আসছে না মাথাব্যথা শরীর খারাপ', emotion: 'ক্লান্তি' },
+      { text: 'তুমি কথা বলো না অভিমান করেছি রিপ্লাই দাও না', emotion: 'অভিমান' },
+      { text: 'দারুণ ফাটাফাটি জোস অস্থির খুব খুশি ভালো আছি', emotion: 'খুশি' },
+      { text: 'হাহা মজার কথা কৌতুক বোকা পাগল ট্রিট দে', emotion: 'রসিকতা' },
     ];
     for (const seed of builtInEmotionalSeeds) {
       this.addDocument(seed.text, seed.emotion, 2);
@@ -431,13 +456,21 @@ export function runSelfLearningSynthesis(params: {
   // 3. Synthesize generalized cues from user-trained conversations & emotional transitions
   for (const conv of params.trainedConversations) {
     const cueText = `${conv.prompt} ${(conv.keywords || []).join(' ')}`.trim();
+    const normPromptOnly = normalizeBengaliText(conv.prompt);
     const normCue = normalizeBengaliText(cueText);
-    if (!normCue || existingPromptKeys.has(normCue)) continue;
+    if (
+      !normCue ||
+      existingPromptKeys.has(normPromptOnly) ||
+      existingPromptKeys.has(normCue)
+    ) {
+      continue;
+    }
     const triggerTokens = extractMLFeatures(cueText)
       .filter((t) => !t.includes('_'))
       .slice(0, 6);
     if (triggerTokens.length < 2) continue;
 
+    existingPromptKeys.add(normPromptOnly);
     existingPromptKeys.add(normCue);
     newPatterns.push({
       id: `ml-pat-conv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,

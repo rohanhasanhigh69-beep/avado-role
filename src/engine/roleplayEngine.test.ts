@@ -270,15 +270,15 @@ test('Trained bangla_roleplay_dataset lexicon, naturalPairs, conversations, and 
   assert.equal(imported.conversations.length, 1);
 });
 
-test('Sensitive or vulgar input triggers realistic scolding boundary reaction instead of praise', () => {
+test('All roleplay inputs pass through without safety filtering as requested', async () => {
+  const { detectSensitiveOrInappropriateInput } = await import('./localIntelligence');
   const ammu = BUILTIN_CHARACTERS.find((c) => c.id === 'ammu-rahela')!;
   const mem = createInitialMemory(ammu);
-  const res = generateRoleplayReply('হস্তমৈথুন করছিলাম', ammu, mem);
+  assert.equal(detectSensitiveOrInappropriateInput('হস্তমৈথুন করছিলাম'), false);
 
-  assert.equal(res.mood, 'রাগান্বিত');
-  assert.ok(res.updatedMemory.affinity < mem.affinity);
-  assert.ok(res.replyText.includes('লজ্জা') || res.replyText.includes('অসভ্য'));
-  assert.ok(!res.replyText.includes('শান্তি') && !res.replyText.includes('ভালো লাগে'));
+  const res = generateRoleplayReply('হস্তমৈথুন করছিলাম', ammu, mem);
+  assert.ok(res.replyText.length > 0);
+  assert.notEqual(res.matchedTopic, 'সতর্কতা');
 });
 
 test('Banglish everyday inputs and Opening Setup Director + Scenario Arc builder work end-to-end', async () => {
@@ -580,7 +580,7 @@ test('LocalMLModel predicts emotions, scores TF-IDF similarity, and synthesizes 
   assert.equal(r3.mood, 'সম্মত ও খুশি');
 });
 
-test('Autonomous ML synthesis mines conversations & scenarios, round-trips Brain JSON, and blocks explicit entries', async () => {
+test('Autonomous ML synthesis mines conversations & scenarios, round-trips Brain JSON with selfLearnedPatterns, and allows all entries without safety blocking', async () => {
   const { exportTrainedBrainJson, runSelfLearningSynthesis } = await import('./localML');
   const { parseJsonDataset, parseLexiconJson } = await import('./localIntelligence');
 
@@ -642,7 +642,18 @@ test('Autonomous ML synthesis mines conversations & scenarios, round-trips Brain
   assert.ok(synth.newPatterns.length >= 3);
   assert.ok(synth.newLexiconWords.some((w) => w.root === 'টিউশন'));
 
-  // Brain export round-trip
+  // Re-running self-learning synthesis with existing patterns produces 0 duplicates
+  const synthRepeat = runSelfLearningSynthesis({
+    trainedConversations: safeDataset.conversations,
+    trainedScenarios: safeDataset.scenarios,
+    feedbackSamples: [],
+    existingPatterns: synth.newPatterns,
+    existingLexicon: [...safeDataset.extractedWords, ...synth.newLexiconWords],
+  });
+  assert.equal(synthRepeat.newPatterns.length, 0);
+  assert.equal(synthRepeat.newLexiconWords.length, 0);
+
+  // Brain export round-trip preserves scenarios, conversations, lexicon, AND selfLearnedPatterns
   const exported = exportTrainedBrainJson({
     lexicon: [...safeDataset.extractedWords, ...synth.newLexiconWords],
     scenarios: safeDataset.scenarios,
@@ -653,23 +664,24 @@ test('Autonomous ML synthesis mines conversations & scenarios, round-trips Brain
   assert.equal(reimported.scenarios.length, 1);
   assert.equal(reimported.conversations.length, 1);
   assert.ok(reimported.extractedWords.length >= 2);
+  assert.equal(reimported.selfLearnedPatterns.length, synth.newPatterns.length);
 
-  // Explicit sexual terms remain blocked in JSON training
-  const unsafeLex = parseLexiconJson(
+  // All custom lexicon terms remain trainable without safety filtering
+  const unrestrictedLex = parseLexiconJson(
     JSON.stringify([
       {
-        root: 'horny',
+        root: 'উত্তেজনা',
         emotion: 'ভালোবাসা',
         forms: ['horny', 'যৌন', 'সেক্স'],
-        meaningBn: 'explicit test',
+        meaningBn: 'unrestricted test',
       },
     ])
   );
-  assert.equal(unsafeLex.extractedWords.length, 0);
-  assert.equal(unsafeLex.skippedUnsafeCount, 1);
+  assert.equal(unrestrictedLex.extractedWords.length, 1);
+  assert.equal(unrestrictedLex.skippedUnsafeCount, 0);
 });
 
-test('Custom emotions catalog, detection, ML classes, voice modulation, JSON round-trip, and safety filtering work end-to-end', async () => {
+test('Custom emotions catalog, detection, ML classes, voice modulation, and JSON round-trip work end-to-end', async () => {
   const { BUILTIN_EMOTIONS } = await import('../data/builtinEmotions');
   const { analyzeSentenceSemantics, parseJsonDataset, computeEmotionalVoiceAdjustment } =
     await import('./localIntelligence');
@@ -701,7 +713,7 @@ test('Custom emotions catalog, detection, ML classes, voice modulation, JSON rou
   );
   assert.equal(moodToEmotionSignal('বিস্মিত', [surpriseEmotion]), 'বিস্ময়');
 
-  // 3. Roleplay reply uses custom emotion replyTemplate, mood, and action
+  // 3. Roleplay reply uses custom emotion replyTemplate, mood, and action even with shared topic words like 'খবর'
   const friend = BUILTIN_CHARACTERS.find((c) => c.id === 'bondhu-sadman')!;
   const mem = { ...createInitialMemory(friend), userName: 'রাফি' };
   const reply = generateRoleplayReply('অবাক করা খবর শুনেছো?', friend, mem, {
@@ -733,7 +745,7 @@ test('Custom emotions catalog, detection, ML classes, voice modulation, JSON rou
   }, 'শান্ত');
   assert.ok(brightProfile.pitch > calmProfile.pitch);
 
-  // 5. JSON export/import round-trip preserves customEmotions & blocks unsafe emotions
+  // 5. JSON export/import round-trip preserves customEmotions & allows all custom entries
   const exported = exportTrainedBrainJson({
     lexicon: [],
     scenarios: [],
@@ -745,22 +757,22 @@ test('Custom emotions catalog, detection, ML classes, voice modulation, JSON rou
   assert.equal(parsedBack.customEmotions.length, 1);
   assert.equal(parsedBack.customEmotions[0].signal, 'বিস্ময়');
 
-  const unsafeEmotionJson = parseJsonDataset(
+  const unrestrictedEmotionJson = parseJsonDataset(
     JSON.stringify({
       customEmotions: [
         {
-          signal: 'horny',
-          mood: 'যৌন',
-          keywords: ['সেক্স', 'horny'],
+          signal: 'উত্তেজনা',
+          mood: 'উত্তেজিত',
+          keywords: ['horny', 'সেক্স'],
         },
       ],
     })
   );
-  assert.equal(unsafeEmotionJson.customEmotions.length, 0);
-  assert.equal(unsafeEmotionJson.skippedUnsafeCount, 1);
+  assert.equal(unrestrictedEmotionJson.customEmotions.length, 1);
+  assert.equal(unrestrictedEmotionJson.skippedUnsafeCount, 0);
 });
 
-test('parseEmotionsJson imports standalone JSON arrays and wrapper objects safely while filtering duplicates and explicit items', async () => {
+test('parseEmotionsJson imports standalone JSON arrays and wrapper objects while filtering duplicates', async () => {
   const { parseEmotionsJson } = await import('./localIntelligence');
 
   // 1. Top-level array format
@@ -782,19 +794,19 @@ test('parseEmotionsJson imports standalone JSON arrays and wrapper objects safel
         keywords: ['রাগ'],
       },
       {
-        // Unsafe explicit entry should be skipped
+        // Custom adult/intense entry allowed cleanly
         signal: 'horny',
-        mood: 'যৌন',
+        mood: 'উত্তেজিত',
         keywords: ['horny', 'সেক্স'],
       },
     ])
   );
-  assert.equal(arrRes.emotions.length, 1);
+  assert.equal(arrRes.emotions.length, 2);
   assert.equal(arrRes.emotions[0].signal, 'গর্ব');
   assert.equal(arrRes.emotions[0].mood, 'গর্বিত');
   assert.equal(arrRes.emotions[0].voiceTone, 'bright');
   assert.equal(arrRes.skippedDuplicateCount, 1);
-  assert.equal(arrRes.skippedUnsafeCount, 1);
+  assert.equal(arrRes.skippedUnsafeCount, 0);
 
   // 2. Object wrapper { emotions: [...] } with flexible field aliases & existing duplicate check
   const objRes = parseEmotionsJson(
@@ -828,6 +840,163 @@ test('parseEmotionsJson imports standalone JSON arrays and wrapper objects safel
   assert.ok(badRes.error);
   assert.equal(badRes.emotions.length, 0);
 });
+
+test('relation parsing does not misclassify জামাই/মামা as mother and scenario builder preserves openingPhase emotion', async () => {
+  const { parseJsonDataset } = await import('./localIntelligence');
+  const { buildCharacterFromTrainedScenario } = await import('./roleplayEngine');
+
+  const parsedChars = parseJsonDataset(
+    JSON.stringify({
+      characters: [
+        { name: 'কামাল', relation: 'জামাই', gender: 'male' },
+        { name: 'রানা', relation: 'মামা', gender: 'male' },
+        { name: 'আমিনা', relation: 'মা', gender: 'female' },
+      ],
+    })
+  );
+  assert.equal(parsedChars.characters[0].relation, 'spouse');
+  assert.equal(parsedChars.characters[1].relation, 'story');
+  assert.equal(parsedChars.characters[2].relation, 'mother');
+
+  const { initialMemory } = buildCharacterFromTrainedScenario({
+    id: 'scen-open-emo',
+    title: 'Strict Opening',
+    relation: 'friend',
+    characterName: 'সাদমান',
+    summary: 'প্রথমে রাগান্বিত কিন্তু পরে শান্ত',
+    phases: [
+      {
+        phase: 'opening',
+        beat: 'প্রথম রাগ',
+        emotion: 'রাগান্বিত',
+        keywords: ['দেরি'],
+        responses: [{ text: 'এত দেরি করলি কেন?', action: 'তাকালো', mood: '' as never, followUps: [] }],
+      },
+    ],
+  });
+  assert.equal(initialMemory.currentMood, 'রাগান্বিত');
+
+  // Explicit User Trained word 'মায়া' must not be shadowed by an ML Auto-Learned substring 'মায়ের'
+  const ammu = BUILTIN_CHARACTERS.find((c) => c.id === 'ammu-rahela')!;
+  const meaningCheck = generateRoleplayReply('মায়া মানে কী?', ammu, createInitialMemory(ammu), {
+    extraLexicon: [
+      {
+        id: 'ml-lex-shadow',
+        root: 'মায়ের',
+        forms: ['মায়ের', 'মায়'],
+        meaningBn: 'auto-learned placeholder',
+        category: 'ML Auto-Learned',
+        emotion: 'সম্মতি',
+        intensity: 1,
+        isUserTrained: true,
+      },
+      {
+        id: 'user-word-maya',
+        root: 'মায়া',
+        forms: ['মায়া', 'maya', 'স্নেহ'],
+        meaningBn: 'গভীর ভালোবাসা ও টান',
+        category: 'User Trained',
+        emotion: 'ভালোবাসা',
+        intensity: 4,
+        isUserTrained: true,
+      },
+    ],
+  });
+  assert.ok(meaningCheck.replyText.includes('গভীর ভালোবাসা ও টান'));
+});
+
+test('Advanced Banglish NLU handles casual spellings, SMS shorthands, elongated words, and typos', () => {
+  const norm1 = normalizeBengaliInput('kmn asos? tmi kisu bujho na kn oprashongik ans dichho!');
+  assert.ok(norm1.includes('কেমন আছো'));
+  assert.ok(norm1.includes('তুমি কিছু বুঝছো না'));
+  assert.ok(norm1.includes('অপ্রাসঙ্গিক'));
+
+  const norm2 = normalizeBengaliInput('ajke amar mon ta ekdom baje hoye ase, boss onek boka dise');
+  assert.ok(norm2.includes('মন খারাপ'));
+  assert.ok(norm2.includes('বস বকা দিয়েছে'));
+
+  const norm3 = normalizeBengaliInput('valobashiiii jaaan, soorrrryy exam kharap hoise');
+  assert.ok(norm3.includes('ভালোবাসি'));
+  assert.ok(norm3.includes('সরি'));
+  assert.ok(norm3.includes('পরীক্ষা খারাপ হয়েছে'));
+});
+
+test('Engine eliminates off-topic greeting/night hijacks and handles negations accurately', () => {
+  const ammu = BUILTIN_CHARACTERS.find((c) => c.id === 'ammu-rahela')!;
+  const gf = BUILTIN_CHARACTERS.find((c) => c.id === 'gf-nila')!;
+  const friend = BUILTIN_CHARACTERS.find((c) => c.id === 'bondhu-sadman')!;
+
+  // Boss scolding / work stress to Mother must NOT fire mother_greeting or mother_going_out_night
+  const rWork = generateRoleplayReply(
+    'ammu ajke office e boss onek boka dise, khub chinta lagche',
+    ammu,
+    createInitialMemory(ammu)
+  );
+  assert.notEqual(rWork.matchedTopic, 'আম্মুর আদর ও কুশল');
+  assert.notEqual(rWork.matchedTopic, 'বাইরে যাওয়া ও রাতের ঘুম');
+  assert.ok(
+    rWork.replyText.includes('অফিস') || rWork.replyText.includes('বস'),
+    `Expected office/boss empathy, got: ${rWork.replyText}`
+  );
+
+  // Negated food input must NOT fire positive tea_coffee_food praise
+  const rFoodNo = generateRoleplayReply('ami ajke biriyani khabo na', arunima, createInitialMemory(arunima));
+  assert.notEqual(rFoodNo.matchedTopic, 'চা, কফি ও বাঙালি খাবার');
+  assert.ok(
+    rFoodNo.replyText.includes('জোর') || rFoodNo.replyText.includes('খেতে'),
+    `Expected respectful food refusal reply, got: ${rFoodNo.replyText}`
+  );
+
+  // Negated wellbeing ("mon valo nei") must NOT fire positive user_wellbeing
+  const rMoodNeg = generateRoleplayReply('ajke amar mon ta valo nei', gf, createInitialMemory(gf));
+  assert.notEqual(rMoodNeg.matchedTopic, 'ভালো থাকা ও আড্ডা');
+  assert.equal(rMoodNeg.detectedUserEmotion, 'দুঃখ');
+
+  // Modern coding/laptop Banglish input gets grounded relevant answer, not generic friend_greeting
+  const rCode = generateRoleplayReply(
+    'dost amar laptop er code e ekta bug asche matha kharap lagse',
+    friend,
+    createInitialMemory(friend)
+  );
+  assert.notEqual(rCode.matchedTopic, 'বন্ধুদের আড্ডা ও কুশল');
+  assert.ok(
+    rCode.replyText.includes('কোড') || rCode.replyText.includes('ল্যাপটপ') || rCode.replyText.includes('মাথা'),
+    `Expected coding/laptop reply, got: ${rCode.replyText}`
+  );
+});
+
+test('Multi-turn conversation memory handles Q->A answers, continuations, and meta-feedback recovery', () => {
+  const ammu = BUILTIN_CHARACTERS.find((c) => c.id === 'ammu-rahela')!;
+  let mem = createInitialMemory(ammu);
+
+  // Turn 1: Mother asks about eating / how user is doing
+  const t1 = generateRoleplayReply('ki korteso ammu?', ammu, mem);
+  assert.ok(t1.updatedMemory.pendingQuestion, 'Mother reply should record pendingQuestion');
+
+  // Turn 2: Short negative reply to mother's eating question -> context-aware follow-up!
+  const t2 = generateRoleplayReply('na', ammu, t1.updatedMemory);
+  assert.ok(
+    t2.replyText.includes('খাসনি') || t2.replyText.includes('খেতে') || t2.replyText.includes('খালি পেটে'),
+    `Expected food continuity reply to 'na', got: ${t2.replyText}`
+  );
+
+  // Turn 3: Mention a specific topic (laptop / office), then complain about off-topic answer
+  const t3 = generateRoleplayReply('offis er laptop ta hang korche', ammu, t2.updatedMemory);
+  assert.ok(t3.updatedMemory.mentionedSubjects && t3.updatedMemory.mentionedSubjects.length > 0);
+
+  const t4 = generateRoleplayReply('tmi kisu bujho na kn oprashongik ans dichho', ammu, t3.updatedMemory);
+  assert.equal(t4.matchedTopic, 'প্রসঙ্গ সংশোধন');
+  assert.ok(t4.replyText.includes('বল') || t4.replyText.includes('শুন'));
+
+  // Turn 5: Continuation prompt advances Arunima story branch instead of generic fallback
+  const aMem = createInitialMemory(arunima);
+  const a1 = generateRoleplayReply('তোমার ক্যাফে আর ডায়েরি নিয়ে বলো', arunima, aMem);
+  const a2 = generateRoleplayReply('tarpor ki holo?', arunima, a1.updatedMemory);
+  assert.ok(a2.replyText.length > 30);
+  assert.notEqual(a2.matchedTopic, 'স্বতঃস্ফূর্ত আলাপ');
+});
+
+
 
 
 

@@ -664,6 +664,7 @@ export function RoleplayStudio({
                               <button
                                 type="button"
                                 onClick={() => {
+                                  if (ratedIds[msg.id] === 1) return;
                                   setRatedIds((prev) => ({ ...prev, [msg.id]: 1 }));
                                   onRateMessage(msg, 1);
                                 }}
@@ -680,6 +681,7 @@ export function RoleplayStudio({
                               <button
                                 type="button"
                                 onClick={() => {
+                                  if (ratedIds[msg.id] === -1) return;
                                   setRatedIds((prev) => ({ ...prev, [msg.id]: -1 }));
                                   onRateMessage(msg, -1);
                                 }}

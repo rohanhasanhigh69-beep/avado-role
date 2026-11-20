@@ -1,4 +1,4 @@
-﻿import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   BookOpen,
   Brain,
@@ -52,7 +52,8 @@ interface LocalTrainerProps {
     words: LexiconEntry[],
     scenarios?: TrainedScenario[],
     characters?: RoleplayCharacter[],
-    emotions?: CustomEmotionDefinition[]
+    emotions?: CustomEmotionDefinition[],
+    selfLearnedPatterns?: MLSelfLearnedPattern[]
   ) => void;
   onRemoveTrainedConversation: (id: string) => void;
   onRemoveTrainedScenario: (id: string) => void;
@@ -69,84 +70,84 @@ const EMOTIONAL_ARC_JSON_TEMPLATE = JSON.stringify(
   {
     lexicon: [
       {
-        root: 'à¦…à¦¨à§à¦¨à§Ÿ',
-        emotion: 'à¦…à¦¨à§à¦¨à§Ÿ',
-        forms: ['à¦…à¦¨à§à¦¨à§Ÿ', 'à¦ªà§à¦²à¦¿à¦œ', 'please ma', 'convince', 'à¦•à¦¥à¦¾ à¦¦à¦¿à¦šà§à¦›à¦¿'],
-        meaningBn: 'à¦•à¦¾à¦‰à¦•à§‡ à¦¨à¦°à¦® à¦•à¦°à§‡ à¦°à¦¾à¦œà¦¿ à¦•à¦°à¦¾à¦¨à§‹à¦° à¦œà¦¨à§à¦¯ à¦¬à¦¿à¦¨à§€à¦¤ à¦…à¦¨à§à¦°à§‹à¦§',
-        category: 'à¦†à¦¬à§‡à¦— à¦“ à¦¸à¦®à§à¦ªà¦°à§à¦•',
+        root: 'অনুনয়',
+        emotion: 'অনুনয়',
+        forms: ['অনুনয়', 'প্লিজ', 'please ma', 'convince', 'কথা দিচ্ছি'],
+        meaningBn: 'কাউকে নরম করে রাজি করানোর জন্য বিনীত অনুরোধ',
+        category: 'আবেগ ও সম্পর্ক',
         intensity: 4,
       },
     ],
     characters: [
       {
-        name: 'à¦°à¦¾à¦¬à§‡à§Ÿà¦¾ (à¦•à¦ à§‹à¦° à¦†à¦®à§à¦®à§)',
+        name: 'রাবেয়া (কঠোর আম্মু)',
         relation: 'mother',
         gender: 'female',
         age: 39,
-        setting: 'à¦¬à¦¾à¦¸à¦¾à¦° à¦ªà§œà¦¾à¦° à¦˜à¦°à§‡',
+        setting: 'বাসার পড়ার ঘরে',
         personalitySummary:
-          'à¦ªà§œà¦¾à¦¶à§‹à¦¨à¦¾à¦° à¦¬à¦¿à¦·à§Ÿà§‡ à¦ªà§à¦°à¦¥à¦®à§‡ à¦°à¦¾à¦—à§€ à¦“ à¦•à¦ à§‹à¦°, à¦šà¦¾à¦ª à¦¬à¦¾ à¦¶à¦°à§à¦¤ à¦¦à§‡à§Ÿ, à¦•à¦¿à¦¨à§à¦¤à§ à¦®à¦¨ à¦¦à¦¿à§Ÿà§‡ à¦•à¦¥à¦¾ à¦¶à§à¦¨à¦²à§‡ à¦¨à¦°à¦® à¦¹à§Ÿà§‡ à¦¯à¦¾à§Ÿà¥¤',
-        greeting: 'à¦à¦‡ à¦–à§‹à¦•à¦¾! à¦¸à¦¾à¦°à¦¾à¦¦à¦¿à¦¨ à¦¬à¦‡à§Ÿà§‡à¦° à¦¨à¦¾à¦® à¦¨à§‡à¦‡, à¦à¦–à¦¨ à¦†à¦¬à¦¾à¦° à¦–à§‡à¦²à¦¤à§‡ à¦¯à¦¾à¦“à§Ÿà¦¾à¦° à¦•à¦¥à¦¾ à¦¬à¦²à¦›à¦¿à¦¸?',
-        greetingAction: 'à¦¹à¦¾à¦¤à§‡ à¦šà¦¾à§Ÿà§‡à¦° à¦•à¦¾à¦ª à¦°à§‡à¦–à§‡ à¦•à§œà¦¾ à¦šà§‹à¦–à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹',
+          'পড়াশোনার বিষয়ে প্রথমে রাগী ও কঠোর, চাপ বা শর্ত দেয়, কিন্তু মন দিয়ে কথা শুনলে নরম হয়ে যায়।',
+        greeting: 'এই খোকা! সারাদিন বইয়ের নাম নেই, এখন আবার খেলতে যাওয়ার কথা বলছিস?',
+        greetingAction: 'হাতে চায়ের কাপ রেখে কড়া চোখে তাকালো',
       },
     ],
     scenarios: [
       {
-        title: 'Study vs Playtime: Anger to Persuasion Arc (à¦°à¦¾à¦—, à¦¶à¦°à§à¦¤ à¦“ à¦°à¦¾à¦œà¦¿ à¦¹à¦“à§Ÿà¦¾à¦° à¦—à¦²à§à¦ª)',
+        title: 'Study vs Playtime: Anger to Persuasion Arc (রাগ, শর্ত ও রাজি হওয়ার গল্প)',
         relation: 'mother',
-        characterName: 'à¦°à¦¾à¦¬à§‡à§Ÿà¦¾',
+        characterName: 'রাবেয়া',
         characterAge: 39,
-        setting: 'à¦¬à¦¾à¦¸à¦¾à¦° à¦ªà§œà¦¾à¦° à¦˜à¦°à§‡',
+        setting: 'বাসার পড়ার ঘরে',
         summary:
-          'à¦›à§‡à¦²à§‡ à¦–à§‡à¦²à¦¤à§‡ à¦¯à§‡à¦¤à§‡ à¦šà¦¾à¦‡à¦²à§‡ à¦®à¦¾ à¦ªà§à¦°à¦¥à¦®à§‡ à¦°à¦¾à¦— à¦•à¦°à§‡ à¦“ à¦¬à¦¾à¦¬à¦¾à¦•à§‡ à¦¬à¦²à§‡ à¦¦à§‡à¦“à§Ÿà¦¾à¦° à¦­à§Ÿ à¦¦à§‡à¦–à¦¾à§Ÿ; à¦ªà¦°à§‡ à¦›à§‡à¦²à§‡ à¦¬à§à¦à¦¿à§Ÿà§‡ à¦ªà§œà¦¾à¦° à¦•à¦¥à¦¾ à¦¦à¦¿à¦²à§‡ à¦®à¦¾ à¦¨à¦°à¦® à¦¹à§Ÿà§‡ à¦°à¦¾à¦œà¦¿ à¦¹à§Ÿà¥¤',
-        greeting: 'à¦ªà§œà¦¾à¦¶à§‹à¦¨à¦¾ à¦¶à§‡à¦· à¦¨à¦¾ à¦•à¦°à§‡ à¦à¦• à¦ªà¦¾à¦“ à¦˜à¦°à§‡à¦° à¦¬à¦¾à¦‡à¦°à§‡ à¦¯à¦¾à¦¬à§‡ à¦¨à¦¾â€”à¦¬à¦²à§‹ à¦†à¦œ à¦•à¦¤à¦•à§à¦·à¦£ à¦ªà§œà§‡à¦›à§‹?',
-        greetingAction: 'à¦¬à¦‡à§Ÿà§‡à¦° à¦Ÿà§‡à¦¬à¦¿à¦²à§‡à¦° à¦ªà¦¾à¦¶à§‡ à¦¦à¦¾à¦à§œà¦¿à§Ÿà§‡ à¦—à¦®à§à¦­à§€à¦° à¦¸à§à¦¬à¦°à§‡ à¦¬à¦²à¦²à§‹',
+          'ছেলে খেলতে যেতে চাইলে মা প্রথমে রাগ করে ও বাবাকে বলে দেওয়ার ভয় দেখায়; পরে ছেলে বুঝিয়ে পড়ার কথা দিলে মা নরম হয়ে রাজি হয়।',
+        greeting: 'পড়াশোনা শেষ না করে এক পাও ঘরের বাইরে যাবে না—বলো আজ কতক্ষণ পড়েছো?',
+        greetingAction: 'বইয়ের টেবিলের পাশে দাঁড়িয়ে গম্ভীর স্বরে বললো',
         phases: [
           {
             phase: 'opening',
-            beat: 'à¦–à§‡à¦²à¦¾à¦° à¦¬à¦¾à§Ÿà¦¨à¦¾ à¦¶à§à¦¨à§‡ à¦®à¦¾à§Ÿà§‡à¦° à¦ªà§à¦°à¦¾à¦¥à¦®à¦¿à¦• à¦°à¦¾à¦— à¦“ à¦†à¦ªà¦¤à§à¦¤à¦¿',
-            emotion: 'à¦°à¦¾à¦—à¦¾à¦¨à§à¦¬à¦¿à¦¤',
+            beat: 'খেলার বায়না শুনে মায়ের প্রাথমিক রাগ ও আপত্তি',
+            emotion: 'রাগান্বিত',
             phaseTrigger: 'refusal',
-            keywords: ['à¦–à§‡à¦²à¦¤à§‡', 'à¦ªà§œà¦¬à§‹ à¦¨à¦¾', 'à¦¯à¦¾à¦¬à§‹', 'khelte', 'porbo na'],
+            keywords: ['খেলতে', 'পড়বো না', 'যাবো', 'khelte', 'porbo na'],
             variants: [
               {
-                text: 'à¦•à§‡à¦¨ à¦ªà§œà¦¬à¦¿ à¦¨à¦¾? à¦¤à§‹à¦° à¦ªà¦°à§€à¦•à§à¦·à¦¾ à¦¸à¦¾à¦®à¦¨à§‡ à¦†à¦° à¦¤à§à¦‡ à¦à¦–à¦¨ à¦–à§‡à¦²à¦¤à§‡ à¦¯à¦¾à¦¬à¦¿? à¦à¦•à¦¦à¦® à¦¨à¦¾â€”à¦†à¦œ à¦›à§Ÿ à¦˜à¦£à§à¦Ÿà¦¾ à¦Ÿà§‡à¦¬à¦¿à¦² à¦¥à§‡à¦•à§‡ à¦‰à¦ à¦¬à¦¿ à¦¨à¦¾!',
-                action: 'à¦°à¦¾à¦—à§‡ à¦­à§à¦°à§ à¦•à§à¦à¦šà¦•à§‡ à¦•à§œà¦¾ à¦—à¦²à¦¾à§Ÿ à¦§à¦®à¦• à¦¦à¦¿à¦²',
-                mood: 'à¦°à¦¾à¦—à¦¾à¦¨à§à¦¬à¦¿à¦¤',
-                followUps: ['à¦¨à¦¾ à¦†à¦®à§à¦®à§, à¦†à¦œ à¦–à§‡à¦²à¦¤à§‡ à¦¯à§‡à¦¤à§‡à¦‡ à¦¹à¦¬à§‡', 'à¦›à§Ÿ à¦˜à¦£à§à¦Ÿà¦¾ à¦ªà¦¾à¦°à¦¬à§‹ à¦¨à¦¾ à¦†à¦®à§à¦®à§'],
+                text: 'কেন পড়বি না? তোর পরীক্ষা সামনে আর তুই এখন খেলতে যাবি? একদম না—আজ ছয় ঘণ্টা টেবিল থেকে উঠবি না!',
+                action: 'রাগে ভুরু কুঁচকে কড়া গলায় ধমক দিল',
+                mood: 'রাগান্বিত',
+                followUps: ['না আম্মু, আজ খেলতে যেতেই হবে', 'ছয় ঘণ্টা পারবো না আম্মু'],
               },
             ],
           },
           {
             phase: 'developing',
-            beat: 'à¦¶à¦°à§à¦¤ à¦“ à¦¬à¦¾à¦¬à¦¾à¦•à§‡ à¦¬à¦²à§‡ à¦¦à§‡à¦“à§Ÿà¦¾à¦° à¦šà¦¾à¦ª (à¦­à§Ÿ à¦¦à§‡à¦–à¦¾à¦¨à§‹)',
-            emotion: 'à¦šà¦¾à¦ª à¦“ à¦¶à¦°à§à¦¤',
+            beat: 'শর্ত ও বাবাকে বলে দেওয়ার চাপ (ভয় দেখানো)',
+            emotion: 'চাপ ও শর্ত',
             phaseTrigger: 'pressure',
-            keywords: ['à¦ªà¦¾à¦°à¦¬à§‹ à¦¨à¦¾', 'à¦¬à¦¾à¦œà§‡ à¦²à¦¾à¦—à§‡', 'à¦›à§Ÿ à¦˜à¦£à§à¦Ÿà¦¾', 'à¦•à§‡à¦¨', 'à¦¨à¦¾'],
+            keywords: ['পারবো না', 'বাজে লাগে', 'ছয় ঘণ্টা', 'কেন', 'না'],
             variants: [
               {
-                text: 'à¦¤à§à¦®à¦¿ à¦¯à¦¦à¦¿ à¦†à¦œ à¦¨à¦¾ à¦ªà§œà§‹, à¦¸à¦¨à§à¦§à§à¦¯à¦¾à§Ÿ à¦¤à§‹à¦®à¦¾à¦° à¦¬à¦¾à¦¬à¦¾ à¦«à¦¿à¦°à¦²à§‡à¦‡ à¦¸à¦¬ à¦¬à¦²à§‡ à¦¦à§‡à¦¬à§‹ à¦•à¦¿à¦¨à§à¦¤à§! à¦¤à¦–à¦¨ à¦¬à§à¦à¦¬à§‡ à¦–à§‡à¦²à¦¤à§‡ à¦¯à¦¾à¦“à§Ÿà¦¾ à¦•à¦¾à¦•à§‡ à¦¬à¦²à§‡à¥¤',
-                action: 'à¦¦à§ƒà§ à¦šà§‹à¦–à§‡ à¦¤à¦¾à¦•à¦¿à§Ÿà§‡ à¦¸à§à¦ªà¦·à§à¦Ÿ à¦¶à¦°à§à¦¤ à¦¦à¦¿à¦²',
-                mood: 'à¦šà¦¾à¦ª à¦“ à¦¶à¦°à§à¦¤',
+                text: 'তুমি যদি আজ না পড়ো, সন্ধ্যায় তোমার বাবা ফিরলেই সব বলে দেবো কিন্তু! তখন বুঝবে খেলতে যাওয়া কাকে বলে।',
+                action: 'দৃঢ় চোখে তাকিয়ে স্পষ্ট শর্ত দিল',
+                mood: 'চাপ ও শর্ত',
                 followUps: [
-                  'à¦ªà§à¦²à¦¿à¦œ à¦†à¦®à§à¦®à§ à¦†à¦¬à§à¦¬à§à¦•à§‡ à¦¬à¦²à§‹ à¦¨à¦¾, à¦à¦¸à§‡ à¦ªà§œà§‡ à¦¨à§‡à¦¬à§‹',
-                  'à¦¸à¦°à¦¿ à¦†à¦®à§à¦®à§, à¦•à¦¥à¦¾ à¦¦à¦¿à¦šà§à¦›à¦¿ à¦°à¦¾à¦¤à§‡ à¦ªà§à¦°à§‹ à¦ªà§œà¦¾ à¦¶à§‡à¦· à¦•à¦°à¦¬à§‹',
+                  'প্লিজ আম্মু আব্বুকে বলো না, এসে পড়ে নেবো',
+                  'সরি আম্মু, কথা দিচ্ছি রাতে পুরো পড়া শেষ করবো',
                 ],
               },
             ],
           },
           {
             phase: 'resolution',
-            beat: 'à¦…à¦¨à§à¦¨à§Ÿà§‡ à¦®à¦¾à§Ÿà§‡à¦° à¦®à¦¨ à¦—à¦²à¦¾ à¦“ à¦¶à¦°à§à¦¤à¦¸à¦¾à¦ªà§‡à¦•à§à¦·à§‡ à¦¸à¦®à§à¦®à¦¤à¦¿',
-            emotion: 'à¦¸à¦®à§à¦®à¦¤ à¦“ à¦–à§à¦¶à¦¿',
+            beat: 'অনুনয়ে মায়ের মন গলা ও শর্তসাপেক্ষে সম্মতি',
+            emotion: 'সম্মত ও খুশি',
             phaseTrigger: 'persuasion',
-            keywords: ['à¦ªà§à¦²à¦¿à¦œ', 'à¦¸à¦°à¦¿', 'à¦•à¦¥à¦¾ à¦¦à¦¿à¦šà§à¦›à¦¿', 'à¦ªà§œà§‡ à¦¨à§‡à¦¬à§‹', 'à¦†à¦¬à§à¦¬à§à¦•à§‡ à¦¬à¦²à§‹ à¦¨à¦¾', 'please', 'sorry'],
+            keywords: ['প্লিজ', 'সরি', 'কথা দিচ্ছি', 'পড়ে নেবো', 'আব্বুকে বলো না', 'please', 'sorry'],
             variants: [
               {
-                text: 'à¦‰à¦«, à¦¤à§‹à¦•à§‡ à¦¨à¦¿à§Ÿà§‡ à¦†à¦° à¦ªà¦¾à¦°à¦¿ à¦¨à¦¾ {userName}! à¦†à¦šà§à¦›à¦¾ à¦ à¦¿à¦• à¦†à¦›à§‡, à¦à¦• à¦˜à¦£à§à¦Ÿà¦¾à¦° à¦œà¦¨à§à¦¯ à¦¯à¦¾â€”à¦¤à¦¬à§‡ à¦«à¦¿à¦°à§‡ à¦à¦¸à§‡à¦‡ à¦¬à¦‡ à¦¨à¦¿à§Ÿà§‡ à¦¬à¦¸à¦¬à¦¿, à¦•à¦¥à¦¾ à¦°à¦¾à¦–à¦¬à¦¿ à¦•à¦¿à¦¨à§à¦¤à§!',
-                action: 'à¦¦à§€à¦°à§à¦˜ à¦¨à¦¿à¦¶à§à¦¬à¦¾à¦¸ à¦«à§‡à¦²à§‡ à¦¨à¦°à¦® à¦¹à¦¾à¦¸à¦¿ à¦¦à¦¿à¦²',
-                mood: 'à¦¸à¦®à§à¦®à¦¤ à¦“ à¦–à§à¦¶à¦¿',
-                followUps: ['à¦¥à§à¦¯à¦¾à¦‚à¦• à¦‡à¦‰ à¦†à¦®à§à¦®à§! à¦•à¦¥à¦¾ à¦¦à¦¿à¦šà§à¦›à¦¿', 'à¦à¦• à¦˜à¦£à§à¦Ÿà¦¾à¦° à¦®à¦§à§à¦¯à§‡à¦‡ à¦«à¦¿à¦°à¦¬à§‹'],
+                text: 'উফ, তোকে নিয়ে আর পারি না {userName}! আচ্ছা ঠিক আছে, এক ঘণ্টার জন্য যা—তবে ফিরে এসেই বই নিয়ে বসবি, কথা রাখবি কিন্তু!',
+                action: 'দীর্ঘ নিশ্বাস ফেলে নরম হাসি দিল',
+                mood: 'সম্মত ও খুশি',
+                followUps: ['থ্যাংক ইউ আম্মু! কথা দিচ্ছি', 'এক ঘণ্টার মধ্যেই ফিরবো'],
               },
             ],
           },
@@ -157,32 +158,32 @@ const EMOTIONAL_ARC_JSON_TEMPLATE = JSON.stringify(
       {
         relation: 'mother',
         phase: 'opening',
-        prompt: 'à¦®à¦¾ à¦†à¦œà¦•à§‡ à¦†à¦®à¦¿ à¦–à§‡à¦²à¦¤à§‡ à¦¯à¦¾à¦¬à§‹ à¦ªà§œà¦¬à§‹ à¦¨à¦¾',
-        keywords: ['à¦–à§‡à¦²à¦¤à§‡', 'à¦ªà§œà¦¬à§‹ à¦¨à¦¾', 'à¦®à¦¾'],
-        response: 'à¦•à§‡à¦¨ à¦ªà§œà¦¬à¦¿ à¦¨à¦¾? à¦¤à§‹à¦° à¦ªà§œà¦¤à§‡ à¦¹à¦¬à§‡ à¦†à¦œà¦•à§‡! à¦†à¦—à§‡ à¦¦à§à¦‡ à¦…à¦§à§à¦¯à¦¾à§Ÿ à¦¶à§‡à¦· à¦•à¦°, à¦¤à¦¾à¦°à¦ªà¦° à¦–à§‡à¦²à¦¾à¦° à¦¨à¦¾à¦® à¦¨à¦¿à¦¬à¦¿à¥¤',
-        emotion: 'à¦°à¦¾à¦—à¦¾à¦¨à§à¦¬à¦¿à¦¤',
-        action: 'à¦¬à¦‡ à¦–à§à¦²à§‡ à¦Ÿà§‡à¦¬à¦¿à¦²à§‡à¦° à¦¸à¦¾à¦®à¦¨à§‡ à¦°à¦¾à¦–à¦²à§‹',
-        followUps: ['à¦ªà§à¦²à¦¿à¦œ à¦®à¦¾, à¦à¦¸à§‡ à¦ªà§œà§‡ à¦¨à§‡à¦¬à§‹'],
+        prompt: 'মা আজকে আমি খেলতে যাবো পড়বো না',
+        keywords: ['খেলতে', 'পড়বো না', 'মা'],
+        response: 'কেন পড়বি না? তোর পড়তে হবে আজকে! আগে দুই অধ্যায় শেষ কর, তারপর খেলার নাম নিবি।',
+        emotion: 'রাগান্বিত',
+        action: 'বই খুলে টেবিলের সামনে রাখলো',
+        followUps: ['প্লিজ মা, এসে পড়ে নেবো'],
       },
       {
         relation: 'mother',
         phase: 'developing',
-        prompt: 'à¦¨à¦¾ à¦†à¦®à¦¿ à¦ªà§œà¦¬à§‹ à¦¨à¦¾',
-        keywords: ['à¦ªà§œà¦¬à§‹ à¦¨à¦¾', 'à¦¨à¦¾', 'à¦•à¦·à§à¦Ÿ'],
-        response: 'à¦¤à§à¦®à¦¿ à¦¯à¦¦à¦¿ à¦¨à¦¾ à¦ªà§œà§‹, à¦¤à§‹à¦®à¦¾à¦° à¦¬à¦¾à¦¬à¦¾à¦•à§‡ à¦¬à¦²à§‡ à¦¦à¦¿à¦¬à§‹ à¦•à¦¿à¦¨à§à¦¤à§! à¦à¦–à¦¨à¦‡ à¦¬à¦‡ à¦¨à¦¿à§Ÿà§‡ à¦¬à¦¸à§‹ à¦¬à¦²à¦›à¦¿à¥¤',
-        emotion: 'à¦šà¦¾à¦ª à¦“ à¦¶à¦°à§à¦¤',
-        action: 'à¦•à§œà¦¾ à¦¦à§ƒà¦·à§à¦Ÿà¦¿à¦¤à§‡ à¦¤à¦¾à¦•à¦¿à§Ÿà§‡ à¦¸à¦¤à¦°à§à¦• à¦•à¦°à¦²à§‹',
-        followUps: ['à¦†à¦¬à§à¦¬à§à¦•à§‡ à¦¬à¦²à§‹ à¦¨à¦¾ à¦®à¦¾, à¦†à¦®à¦¿ à¦ªà§œà¦¬à§‹'],
+        prompt: 'না আমি পড়বো না',
+        keywords: ['পড়বো না', 'না', 'কষ্ট'],
+        response: 'তুমি যদি না পড়ো, তোমার বাবাকে বলে দিবো কিন্তু! এখনই বই নিয়ে বসো বলছি।',
+        emotion: 'চাপ ও শর্ত',
+        action: 'কড়া দৃষ্টিতে তাকিয়ে সতর্ক করলো',
+        followUps: ['আব্বুকে বলো না মা, আমি পড়বো'],
       },
       {
         relation: 'mother',
         phase: 'resolution',
-        prompt: 'à¦¸à¦°à¦¿ à¦®à¦¾ à¦•à¦¥à¦¾ à¦¦à¦¿à¦šà§à¦›à¦¿ à¦«à¦¿à¦°à§‡ à¦à¦¸à§‡ à¦ªà§œà¦¬à§‹ à¦ªà§à¦²à¦¿à¦œ à¦¯à§‡à¦¤à§‡ à¦¦à¦¾à¦“',
-        keywords: ['à¦¸à¦°à¦¿', 'à¦•à¦¥à¦¾ à¦¦à¦¿à¦šà§à¦›à¦¿', 'à¦ªà§à¦²à¦¿à¦œ', 'à¦«à¦¿à¦°à§‡ à¦à¦¸à§‡'],
-        response: 'à¦†à¦šà§à¦›à¦¾ à¦ à¦¿à¦• à¦†à¦›à§‡ {userName}, à¦à¦¤ à¦•à¦°à§‡ à¦¬à¦²à¦›à¦¿à¦¸ à¦¯à¦–à¦¨ à¦¯à¦¾â€”à¦¤à¦¬à§‡ à¦¸à¦¨à§à¦§à§à¦¯à¦¾ à¦¨à¦¾à¦®à¦¾à¦° à¦†à¦—à§‡à¦‡ à¦¬à¦¾à¦¸à¦¾à§Ÿ à¦«à¦¿à¦°à¦¬à¦¿!',
-        emotion: 'à¦¨à¦°à¦® à¦¹à¦“à§Ÿà¦¾',
-        action: 'à¦¸à§à¦¨à§‡à¦¹à¦­à¦°à¦¾ à¦¦à§ƒà¦·à§à¦Ÿà¦¿à¦¤à§‡ à¦®à¦¾à¦¥à¦¾ à¦¨à§‡à§œà§‡ à¦¸à¦®à§à¦®à¦¤à¦¿ à¦¦à¦¿à¦²',
-        followUps: ['à¦ à¦¿à¦• à¦†à¦›à§‡ à¦†à¦®à§à¦®à§, à¦¤à¦¾à§œà¦¾à¦¤à¦¾à§œà¦¿ à¦«à¦¿à¦°à¦¬à§‹'],
+        prompt: 'সরি মা কথা দিচ্ছি ফিরে এসে পড়বো প্লিজ যেতে দাও',
+        keywords: ['সরি', 'কথা দিচ্ছি', 'প্লিজ', 'ফিরে এসে'],
+        response: 'আচ্ছা ঠিক আছে {userName}, এত করে বলছিস যখন যা—তবে সন্ধ্যা নামার আগেই বাসায় ফিরবি!',
+        emotion: 'নরম হওয়া',
+        action: 'স্নেহভরা দৃষ্টিতে মাথা নেড়ে সম্মতি দিল',
+        followUps: ['ঠিক আছে আম্মু, তাড়াতাড়ি ফিরবো'],
       },
     ],
   },
@@ -194,35 +195,35 @@ const STORY_MODULES_JSON_TEMPLATE = JSON.stringify(
   {
     scenarios: [
       {
-        title: 'Late Night Return Worry & Relief (à¦°à¦¾à¦¤à§‡ à¦¦à§‡à¦°à¦¿ à¦•à¦°à§‡ à¦«à§‡à¦°à¦¾à¦° à¦¦à§ƒà¦¶à§à¦¯à¦ªà¦Ÿ)',
+        title: 'Late Night Return Worry & Relief (রাতে দেরি করে ফেরার দৃশ্যপট)',
         relation: 'mother',
-        characterName: 'à¦°à¦¾à¦¬à§‡à§Ÿà¦¾',
-        setting: 'à¦¦à¦°à¦œà¦¾à¦° à¦¸à¦¾à¦®à¦¨à§‡',
-        summary: 'à¦¦à§‡à¦°à¦¿ à¦¹à¦“à§Ÿà¦¾à§Ÿ à¦®à¦¾à§Ÿà§‡à¦° à¦‰à¦¦à§à¦¬à§‡à¦— à¦“ à¦¶à¦¾à¦¸à¦¨, à¦¶à§‡à¦·à§‡ à¦¯à¦¤à§à¦¨ à¦¨à¦¿à§Ÿà§‡ à¦–à¦¾à¦¬à¦¾à¦° à¦¦à§‡à¦“à§Ÿà¦¾',
+        characterName: 'রাবেয়া',
+        setting: 'দরজার সামনে',
+        summary: 'দেরি হওয়ায় মায়ের উদ্বেগ ও শাসন, শেষে যত্ন নিয়ে খাবার দেওয়া',
         phases: [
           {
             phase: 'opening',
-            beat: 'à¦¦à§‡à¦°à¦¿à¦¤à§‡ à¦«à§‡à¦°à¦¾à§Ÿ à¦‰à¦¦à§à¦¬à§‡à¦— à¦“ à¦¬à¦•à¦¾',
-            emotion: 'à¦‰à¦¦à§à¦¬à¦¿à¦—à§à¦¨',
-            keywords: ['à¦¦à§‡à¦°à¦¿', 'à¦°à¦¾à¦¤', 'à¦«à¦¿à¦°à¦²à¦¾à¦®'],
+            beat: 'দেরিতে ফেরায় উদ্বেগ ও বকা',
+            emotion: 'উদ্বিগ্ন',
+            keywords: ['দেরি', 'রাত', 'ফিরলাম'],
             variants: [
               {
-                text: 'à¦à¦¤ à¦°à¦¾à¦¤ à¦¹à¦²à§‹ à¦•à§‡à¦¨ {userName}? à¦•à¦¤à¦¬à¦¾à¦° à¦«à§‹à¦¨ à¦¦à¦¿à§Ÿà§‡à¦›à¦¿â€”à¦Ÿà§‡à¦¨à¦¶à¦¨à§‡ à¦†à¦®à¦¾à¦° à¦¬à§à¦• à¦§à§œà¦«à§œ à¦•à¦°à¦›à¦¿à¦²!',
-                action: 'à¦¦à¦°à¦œà¦¾ à¦–à§à¦²à§‡à¦‡ à¦‰à¦¦à§à¦¬à¦¿à¦—à§à¦¨ à¦¸à§à¦¬à¦°à§‡ à¦¬à¦²à¦²à§‹',
-                mood: 'à¦‰à¦¦à§à¦¬à¦¿à¦—à§à¦¨',
+                text: 'এত রাত হলো কেন {userName}? কতবার ফোন দিয়েছি—টেনশনে আমার বুক ধড়ফড় করছিল!',
+                action: 'দরজা খুলেই উদ্বিগ্ন স্বরে বললো',
+                mood: 'উদ্বিগ্ন',
               },
             ],
           },
           {
             phase: 'resolution',
-            beat: 'à¦°à¦¾à¦— à¦­à§‡à¦™à§‡ à¦¯à¦¤à§à¦¨',
-            emotion: 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²',
-            keywords: ['à¦¸à¦°à¦¿', 'à¦Ÿà§à¦°à¦¾à¦«à¦¿à¦•', 'à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¿'],
+            beat: 'রাগ ভেঙে যত্ন',
+            emotion: 'স্নেহশীল',
+            keywords: ['সরি', 'ট্রাফিক', 'ভালোবাসি'],
             variants: [
               {
-                text: 'à¦†à¦šà§à¦›à¦¾ à¦¸à¦°à¦¿ à¦¬à¦²à¦¤à§‡ à¦¹à¦¬à§‡ à¦¨à¦¾, à¦¹à¦¾à¦¤-à¦®à§à¦– à¦§à§à§Ÿà§‡ à¦¨à§‡â€”à¦—à¦°à¦® à¦­à¦¾à¦¤ à¦¬à§‡à§œà§‡ à¦¦à¦¿à¦šà§à¦›à¦¿à¥¤',
-                action: 'à¦¸à§à¦¨à§‡à¦¹à¦­à¦°à§‡ à¦–à¦¾à¦¬à¦¾à¦° à¦Ÿà§‡à¦¬à¦¿à¦²à§‡à¦° à¦¦à¦¿à¦•à§‡ à¦à¦—à§‹à¦²à§‹',
-                mood: 'à¦¸à§à¦¨à§‡à¦¹à¦¶à§€à¦²',
+                text: 'আচ্ছা সরি বলতে হবে না, হাত-মুখ ধুয়ে নে—গরম ভাত বেড়ে দিচ্ছি।',
+                action: 'স্নেহভরে খাবার টেবিলের দিকে এগোলো',
+                mood: 'স্নেহশীল',
               },
             ],
           },
@@ -231,23 +232,23 @@ const STORY_MODULES_JSON_TEMPLATE = JSON.stringify(
     ],
     characters: [
       {
-        name: 'à¦¤à¦¾à¦¨à¦­à§€à¦°',
+        name: 'তানভীর',
         relation: 'friend',
         gender: 'male',
         age: 24,
-        setting: 'à¦Ÿà¦¿à¦à¦¸à¦¸à¦¿ à¦šà¦¾à§Ÿà§‡à¦° à¦¦à§‹à¦•à¦¾à¦¨',
-        personalitySummary: 'à¦†à¦¡à§à¦¡à¦¾à¦¬à¦¾à¦œ, à¦°à¦¸à¦¿à¦• à¦•à¦¿à¦¨à§à¦¤à§ à¦¬à¦¿à¦ªà¦¦à§‡ à¦ªà¦¾à¦¶à§‡ à¦¥à¦¾à¦•à§‡ à¦à¦®à¦¨ à¦ªà§à¦°à¦¾à¦£à¦–à§‹à¦²à¦¾ à¦¬à¦¨à§à¦§à§à¥¤',
-        greeting: 'à¦•à¦¿à¦°à§‡ à¦¦à§‹à¦¸à§à¦¤! à¦à¦¤à¦¦à¦¿à¦¨ à¦ªà¦° à¦•à§à¦¯à¦¾à¦®à§à¦ªà¦¾à¦¸à§‡ à¦šà§‡à¦¹à¦¾à¦°à¦¾ à¦¦à§‡à¦–à¦¾à¦²à¦¿, à¦Ÿà§à¦°à¦¿à¦Ÿ à¦¦à¦¿à¦¬à¦¿ à¦¨à¦¾?',
+        setting: 'টিএসসি চায়ের দোকান',
+        personalitySummary: 'আড্ডাবাজ, রসিক কিন্তু বিপদে পাশে থাকে এমন প্রাণখোলা বন্ধু।',
+        greeting: 'কিরে দোস্ত! এতদিন পর ক্যাম্পাসে চেহারা দেখালি, ট্রিট দিবি না?',
       },
     ],
     conversations: [
       {
         relation: 'friend',
-        prompt: 'à¦¦à§‹à¦¸à§à¦¤ à¦®à¦¨à¦Ÿà¦¾ à¦†à¦œ à¦­à¦¾à¦²à§‹ à¦¨à§‡à¦‡',
-        keywords: ['à¦®à¦¨ à¦­à¦¾à¦²à§‹ à¦¨à§‡à¦‡', 'à¦•à¦·à§à¦Ÿ', 'à¦¦à§‹à¦¸à§à¦¤'],
-        response: 'à¦†à¦°à§‡ à¦®à¦¾à¦®à¦¾, à¦•à§€ à¦¹à§Ÿà§‡à¦›à§‡ à¦–à§à¦²à§‡ à¦¬à¦² à¦¤à§‹! à¦¬à¦¨à§à¦§à§à¦° à¦•à¦¾à¦›à§‡ à¦®à¦¨ à¦–à¦¾à¦°à¦¾à¦ª à¦²à§à¦•à¦¾à¦¨à§‹à¦° à¦•à§€ à¦†à¦›à§‡?',
-        emotion: 'à¦‰à¦¦à§à¦¬à¦¿à¦—à§à¦¨',
-        action: 'à¦•à¦¾à¦à¦§à§‡ à¦¹à¦¾à¦¤ à¦°à§‡à¦–à§‡ à¦®à¦¨à§‹à¦¯à§‹à¦— à¦¦à¦¿à§Ÿà§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹',
+        prompt: 'দোস্ত মনটা আজ ভালো নেই',
+        keywords: ['মন ভালো নেই', 'কষ্ট', 'দোস্ত'],
+        response: 'আরে মামা, কী হয়েছে খুলে বল তো! বন্ধুর কাছে মন খারাপ লুকানোর কী আছে?',
+        emotion: 'উদ্বিগ্ন',
+        action: 'কাঁধে হাত রেখে মনোযোগ দিয়ে তাকালো',
       },
     ],
   },
@@ -258,19 +259,19 @@ const STORY_MODULES_JSON_TEMPLATE = JSON.stringify(
 const LEXICON_JSON_TEMPLATE = JSON.stringify(
   [
     {
-      root: 'à¦†à¦¹à§à¦²à¦¾à¦¦',
-      emotion: 'à¦–à§à¦¶à¦¿',
-      forms: ['à¦†à¦¹à§à¦²à¦¾à¦¦', 'à¦†à¦¹à§à¦²à¦¾à¦¦à§€', 'ahlad', 'joyful pamper'],
-      meaningBn: 'à¦…à¦¤à¦¿à¦°à¦¿à¦•à§à¦¤ à¦†à¦¦à¦°à§‡à¦° à¦•à¦¾à¦°à¦£à§‡ à¦¸à§ƒà¦·à§à¦Ÿ à¦†à¦¨à¦¨à§à¦¦ à¦¬à¦¾ à¦®à¦¿à¦·à§à¦Ÿà¦¿ à¦†à¦¬à¦¦à¦¾à¦°',
-      category: 'à¦…à¦¨à§à¦­à§‚à¦¤à¦¿',
+      root: 'আহ্লাদ',
+      emotion: 'খুশি',
+      forms: ['আহ্লাদ', 'আহ্লাদী', 'ahlad', 'joyful pamper'],
+      meaningBn: 'অতিরিক্ত আদরের কারণে সৃষ্ট আনন্দ বা মিষ্টি আবদার',
+      category: 'অনুভূতি',
       intensity: 4,
     },
     {
-      root: 'à¦…à¦¨à§à¦¤à¦¾à¦ª',
-      emotion: 'à¦…à¦¨à§à¦¨à§Ÿ',
-      forms: ['à¦…à¦¨à§à¦¤à¦¾à¦ª', 'à¦…à¦¨à§à¦¶à§‹à¦šà¦¨à¦¾', 'onutap', 'regret', 'remorse'],
-      meaningBn: 'à¦¨à¦¿à¦œà§‡à¦° à¦­à§à¦² à¦¬à§à¦à¦¤à§‡ à¦ªà§‡à¦°à§‡ à¦®à¦¨ à¦¥à§‡à¦•à§‡ à¦¦à§à¦ƒà¦–à¦¬à§‹à¦§ à¦“ à¦•à§à¦·à¦®à¦¾ à¦šà¦¾à¦“à§Ÿà¦¾à¦° à¦­à¦¾à¦¬',
-      category: 'à¦…à¦¨à§à¦­à§‚à¦¤à¦¿',
+      root: 'অনুতাপ',
+      emotion: 'অনুনয়',
+      forms: ['অনুতাপ', 'অনুশোচনা', 'onutap', 'regret', 'remorse'],
+      meaningBn: 'নিজের ভুল বুঝতে পেরে মন থেকে দুঃখবোধ ও ক্ষমা চাওয়ার ভাব',
+      category: 'অনুভূতি',
       intensity: 4,
     },
   ],
@@ -281,22 +282,22 @@ const LEXICON_JSON_TEMPLATE = JSON.stringify(
 const EMOTIONS_JSON_TEMPLATE = JSON.stringify(
   [
     {
-      signal: 'à¦¬à¦¿à¦¸à§à¦®à§Ÿ',
-      mood: 'à¦¬à¦¿à¦¸à§à¦®à¦¿à¦¤',
-      keywords: ['à¦…à¦¬à¦¾à¦•', 'à¦¬à¦¿à¦¸à§à¦®à§Ÿ', 'obak', 'surprise', 'wow'],
+      signal: 'বিস্ময়',
+      mood: 'বিস্মিত',
+      keywords: ['অবাক', 'বিস্ময়', 'obak', 'surprise', 'wow'],
       voiceTone: 'bright',
-      descriptionBn: 'à¦…à¦ªà§à¦°à¦¤à§à¦¯à¦¾à¦¶à¦¿à¦¤ à¦•à§‹à¦¨à§‹ à¦–à¦¬à¦° à¦¬à¦¾ à¦˜à¦Ÿà¦¨à¦¾ à¦¶à§à¦¨à§‡ à¦…à¦¬à¦¾à¦• à¦¹à¦“à§Ÿà¦¾à¦° à¦…à¦¨à§à¦­à§‚à¦¤à¦¿',
-      replyTemplate: 'à¦¸à¦¤à§à¦¯à¦¿ à¦¨à¦¾à¦•à¦¿ {userName}! "{word}" à¦¶à§à¦¨à§‡ à¦†à¦®à¦¿ à¦¤à§‹ à¦¦à¦¾à¦°à§à¦£ à¦…à¦¬à¦¾à¦• à¦¹à¦²à¦¾à¦®!',
-      actionText: 'à¦šà§‹à¦– à¦¬à§œ à¦¬à§œ à¦•à¦°à§‡ à¦…à¦¬à¦¾à¦• à¦¹à§Ÿà§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹',
+      descriptionBn: 'অপ্রত্যাশিত কোনো খবর বা ঘটনা শুনে অবাক হওয়ার অনুভূতি',
+      replyTemplate: 'সত্যি নাকি {userName}! "{word}" শুনে আমি তো দারুণ অবাক হলাম!',
+      actionText: 'চোখ বড় বড় করে অবাক হয়ে তাকালো',
     },
     {
-      signal: 'à¦—à¦°à§à¦¬',
-      mood: 'à¦—à¦°à§à¦¬à¦¿à¦¤',
-      keywords: ['à¦—à¦°à§à¦¬', 'à¦¸à¦¾à¦«à¦²à§à¦¯', 'gorbo', 'proud', 'achievement'],
+      signal: 'গর্ব',
+      mood: 'গর্বিত',
+      keywords: ['গর্ব', 'সাফল্য', 'gorbo', 'proud', 'achievement'],
       voiceTone: 'bright',
-      descriptionBn: 'à¦¨à¦¿à¦œà§‡à¦° à¦¬à¦¾ à¦•à¦¾à¦›à§‡à¦° à¦®à¦¾à¦¨à§à¦·à§‡à¦° à¦…à¦°à§à¦œà¦¨à§‡ à¦†à¦¨à¦¨à§à¦¦ à¦“ à¦—à¦°à§à¦¬à¦¬à§‹à¦§',
-      replyTemplate: 'à¦¦à¦¾à¦°à§à¦£ à¦•à¦°à§‡à¦›à§‹ {userName}! à¦¤à§‹à¦®à¦¾à¦° à¦à¦‡ "{word}" à¦¦à§‡à¦–à§‡ à¦†à¦®à¦¾à¦° à¦¸à¦¤à§à¦¯à¦¿à¦‡ à¦–à§à¦¬ à¦—à¦°à§à¦¬ à¦¹à¦šà§à¦›à§‡!',
-      actionText: 'à¦—à¦°à§à¦¬à¦­à¦°à¦¾ à¦¹à¦¾à¦¸à¦¿ à¦¨à¦¿à§Ÿà§‡ à¦ªà¦¿à¦  à¦šà¦¾à¦ªà§œà§‡ à¦¦à¦¿à¦²',
+      descriptionBn: 'নিজের বা কাছের মানুষের অর্জনে আনন্দ ও গর্ববোধ',
+      replyTemplate: 'দারুণ করেছো {userName}! তোমার এই "{word}" দেখে আমার সত্যিই খুব গর্ব হচ্ছে!',
+      actionText: 'গর্বভরা হাসি নিয়ে পিঠ চাপড়ে দিল',
     },
   ],
   null,
@@ -341,7 +342,7 @@ export function LocalTrainer({
   const [wordRoot, setWordRoot] = useState('');
   const [wordForms, setWordForms] = useState('');
   const [wordMeaning, setWordMeaning] = useState('');
-  const [wordEmotion, setWordEmotion] = useState<EmotionSignal>('à¦­à¦¾à¦²à§‹à¦¬à¦¾à¦¸à¦¾');
+  const [wordEmotion, setWordEmotion] = useState<EmotionSignal>('ভালোবাসা');
   const [wordJsonInput, setWordJsonInput] = useState('');
 
   const [jsonInput, setJsonInput] = useState('');
@@ -358,6 +359,12 @@ export function LocalTrainer({
     ],
     [customEmotions]
   );
+
+  useEffect(() => {
+    if (!allEmotionOptions.includes(wordEmotion)) {
+      setWordEmotion('ভালোবাসা');
+    }
+  }, [allEmotionOptions, wordEmotion]);
 
   const allEmotionsCatalog = useMemo(() => {
     const customItems = customEmotions.map((ce) => ({
@@ -458,16 +465,16 @@ export function LocalTrainer({
     }
 
     const newEmotion: CustomEmotionDefinition = {
-      id: `custom-emo-${Date.now()}`,
+      id: `custom-emo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       signal: cleanSignal,
       mood: cleanMood,
       descriptionBn:
-        newEmoDesc.trim() || `${cleanSignal} (${cleanMood}) â€” à¦•à¦¾à¦¸à§à¦Ÿà¦® à¦°à§‹à¦²à¦ªà§à¦²à§‡ à¦…à¦¨à§à¦­à§‚à¦¤à¦¿`,
+        newEmoDesc.trim() || `${cleanSignal} (${cleanMood}) — কাস্টম রোলপ্লে অনুভূতি`,
       keywords: Array.from(new Set([cleanSignal, ...parsedKeywords])),
       replyTemplate:
         newEmoTemplate.trim() ||
-        `à¦¤à§‹à¦®à¦¾à¦° à¦•à¦¥à¦¾à¦° à¦­à§‡à¦¤à¦° "{word}" à¦†à¦° ${cleanSignal}-à¦à¦° à¦…à¦¨à§à¦­à§‚à¦¤à¦¿à¦Ÿà¦¾ à¦¸à§à¦ªà¦·à§à¦Ÿ à¦¬à§à¦à¦¤à§‡ à¦ªà¦¾à¦°à¦›à¦¿ {userName}!`,
-      actionText: newEmoAction.trim() || `${cleanMood} à¦­à¦™à§à¦—à¦¿à¦¤à§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹`,
+        `তোমার কথার ভেতর "{word}" আর ${cleanSignal}-এর অনুভূতিটা স্পষ্ট বুঝতে পারছি {userName}!`,
+      actionText: newEmoAction.trim() || `${cleanMood} ভঙ্গিতে তাকালো`,
       voiceTone: newEmoVoiceTone,
     };
 
@@ -539,6 +546,7 @@ export function LocalTrainer({
       scenarios,
       characters,
       customEmotions: importedEmotions,
+      selfLearnedPatterns: importedPatterns,
       skippedUnsafeCount,
       error,
     } = parseJsonDataset(rawJson, customEmotions);
@@ -551,25 +559,35 @@ export function LocalTrainer({
       extractedWords.length === 0 &&
       scenarios.length === 0 &&
       characters.length === 0 &&
-      importedEmotions.length === 0
+      importedEmotions.length === 0 &&
+      importedPatterns.length === 0
     ) {
       setErrorMsg(
         skippedUnsafeCount > 0
-          ? 'No valid non-explicit entries found in JSON. Only safe dramatic scenarios, characters, dialogues, emotions, and lexicon can be trained.'
-          : 'JSON had no valid scenarios, characters, conversations, customEmotions, naturalPairs, or lexicon items.'
+          ? 'No valid entries found in JSON dataset.'
+          : 'JSON had no valid scenarios, characters, conversations, customEmotions, selfLearnedPatterns, naturalPairs, or lexicon items.'
       );
       return;
     }
-    onAddTrainedBatch(conversations, extractedWords, scenarios, characters, importedEmotions);
+    onAddTrainedBatch(
+      conversations,
+      extractedWords,
+      scenarios,
+      characters,
+      importedEmotions,
+      importedPatterns
+    );
     if (clearSource === 'main') setJsonInput('');
     if (clearSource === 'story') setStoryJsonInput('');
 
     const skipNote =
-      skippedUnsafeCount > 0 ? ` (${skippedUnsafeCount} unsafe entries skipped)` : '';
+      skippedUnsafeCount > 0 ? ` (${skippedUnsafeCount} skipped)` : '';
     const emoNote =
-      importedEmotions.length > 0 ? ` Â· ${importedEmotions.length} custom emotions` : '';
+      importedEmotions.length > 0 ? ` · ${importedEmotions.length} custom emotions` : '';
+    const patNote =
+      importedPatterns.length > 0 ? ` · ${importedPatterns.length} self-learned rules` : '';
     setStatusMessage(
-      `Auto-trained locally: ${scenarios.length} scenarios Â· ${characters.length} characters Â· ${conversations.length} emotion dialogues Â· ${extractedWords.length} lexicon words${emoNote}${skipNote}!`
+      `Auto-trained locally: ${scenarios.length} scenarios · ${characters.length} characters · ${conversations.length} emotion dialogues · ${extractedWords.length} lexicon words${emoNote}${patNote}${skipNote}!`
     );
   };
 
@@ -639,7 +657,7 @@ export function LocalTrainer({
     );
 
     const newEntry: LexiconEntry = {
-      id: `user-word-${Date.now()}`,
+      id: `user-word-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       root: cleanRoot,
       forms: formsList,
       meaningBn: cleanMeaning,
@@ -673,7 +691,7 @@ export function LocalTrainer({
     >
       <div className="mb-6 border-b border-slate-200 pb-6">
         <p className="text-xs font-medium text-slate-500">
-          100% In-Browser Machine Learning Â· Zero External APIs Â· Expert JSON Dataset Auto-Trainer
+          100% In-Browser Machine Learning · Zero External APIs · Expert JSON Dataset Auto-Trainer
         </p>
         <div className="mt-1 flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -684,7 +702,7 @@ export function LocalTrainer({
               Expert Local AI & ML Training Studio
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">
-              Train multi-phase scenarios, emotional arcs (anger, strict pressure, persuasion, agreement), characters, dialogues, and Bengali/Banglish word emotions via structured JSON â€” backed by an in-browser TF-IDF &amp; Naive Bayes self-learning engine.
+              Train multi-phase scenarios, emotional arcs (anger, strict pressure, persuasion, agreement), characters, dialogues, and Bengali/Banglish word emotions via structured JSON — backed by an in-browser TF-IDF &amp; Naive Bayes self-learning engine.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -851,7 +869,7 @@ export function LocalTrainer({
                 type="search"
                 value={emotionSearch}
                 onChange={(e) => setEmotionSearch(e.target.value)}
-                placeholder="Search emotions by name, mood, or trigger word (e.g. à¦°à¦¾à¦—, à¦…à¦­à¦¿à¦®à¦¾à¦¨, à¦¬à¦¿à¦¸à§à¦®à§Ÿ)..."
+                placeholder="Search emotions by name, mood, or trigger word (e.g. রাগ, অভিমান, বিস্ময়)..."
                 className="w-full rounded-lg border border-slate-300 bg-slate-50/40 py-2 pl-9 pr-3 text-sm text-slate-900 focus:border-blue-600 focus:bg-white focus:outline-none"
               />
             </div>
@@ -874,7 +892,7 @@ export function LocalTrainer({
                           {emo.signal}
                         </h3>
                         <p className="text-[11px] font-medium text-slate-600">
-                          Mood: {emo.mood} Â· {emo.isCustom ? 'Custom' : 'Built-in'}
+                          Mood: {emo.mood} · {emo.isCustom ? 'Custom' : 'Built-in'}
                         </p>
                       </div>
                       {emo.isCustom && (
@@ -893,7 +911,7 @@ export function LocalTrainer({
                       Cues: {emo.cues.slice(0, 4).join(', ')}
                     </p>
                     <p className="mt-1 text-[11px] font-medium text-slate-500">
-                      Voice: {emo.voiceTone} Â· {wordCount} lexicon words
+                      Voice: {emo.voiceTone} · {wordCount} lexicon words
                     </p>
                   </article>
                 );
@@ -901,7 +919,7 @@ export function LocalTrainer({
 
               {filteredEmotions.length === 0 && (
                 <p className="col-span-full py-6 text-center text-xs text-slate-500">
-                  No emotions match your search â€” add it on the right!
+                  No emotions match your search — add it on the right!
                 </p>
               )}
             </div>
@@ -951,7 +969,7 @@ export function LocalTrainer({
                   rows={8}
                   value={emotionJsonInput}
                   onChange={(e) => setEmotionJsonInput(e.target.value)}
-                  placeholder='[{"signal": "à¦¬à¦¿à¦¸à§à¦®à§Ÿ", "mood": "à¦¬à¦¿à¦¸à§à¦®à¦¿à¦¤", "keywords": ["à¦…à¦¬à¦¾à¦•", "obak"], "voiceTone": "bright", "replyTemplate": "à¦¸à¦¤à§à¦¯à¦¿ à¦¨à¦¾à¦•à¦¿ {userName}!"}]'
+                  placeholder='[{"signal": "বিস্ময়", "mood": "বিস্মিত", "keywords": ["অবাক", "obak"], "voiceTone": "bright", "replyTemplate": "সত্যি নাকি {userName}!"}]'
                   className="w-full rounded-lg border border-slate-300 bg-white p-3 font-mono text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
                 />
                 <div className="flex flex-wrap items-center gap-2">
@@ -984,7 +1002,7 @@ export function LocalTrainer({
                       type="text"
                       value={newEmoSignal}
                       onChange={(e) => setNewEmoSignal(e.target.value)}
-                      placeholder="e.g. à¦¬à¦¿à¦¸à§à¦®à§Ÿ or à¦—à¦°à§à¦¬"
+                      placeholder="e.g. বিস্ময় or গর্ব"
                       className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
                     />
                   </div>
@@ -997,7 +1015,7 @@ export function LocalTrainer({
                       type="text"
                       value={newEmoMood}
                       onChange={(e) => setNewEmoMood(e.target.value)}
-                      placeholder="e.g. à¦¬à¦¿à¦¸à§à¦®à¦¿à¦¤ or à¦—à¦°à§à¦¬à¦¿à¦¤"
+                      placeholder="e.g. বিস্মিত or গর্বিত"
                       className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
                     />
                   </div>
@@ -1013,7 +1031,7 @@ export function LocalTrainer({
                       type="text"
                       value={newEmoKeywords}
                       onChange={(e) => setNewEmoKeywords(e.target.value)}
-                      placeholder="e.g. à¦…à¦¬à¦¾à¦•, à¦¬à¦¿à¦¸à§à¦®à§Ÿ, obak, wow"
+                      placeholder="e.g. অবাক, বিস্ময়, obak, wow"
                       className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
                     />
                   </div>
@@ -1044,7 +1062,7 @@ export function LocalTrainer({
                     type="text"
                     value={newEmoDesc}
                     onChange={(e) => setNewEmoDesc(e.target.value)}
-                    placeholder="e.g. à¦…à¦ªà§à¦°à¦¤à§à¦¯à¦¾à¦¶à¦¿à¦¤ à¦•à¦¿à¦›à§ à¦¦à§‡à¦–à§‡ à¦¬à¦¾ à¦¶à§à¦¨à§‡ à¦…à¦¬à¦¾à¦• à¦¹à¦“à§Ÿà¦¾à¦° à¦…à¦¨à§à¦­à§‚à¦¤à¦¿"
+                    placeholder="e.g. অপ্রত্যাশিত কিছু দেখে বা শুনে অবাক হওয়ার অনুভূতি"
                     className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
                   />
                 </div>
@@ -1058,7 +1076,7 @@ export function LocalTrainer({
                     type="text"
                     value={newEmoTemplate}
                     onChange={(e) => setNewEmoTemplate(e.target.value)}
-                    placeholder='e.g. à¦¸à¦¤à§à¦¯à¦¿ à¦¨à¦¾à¦•à¦¿ {userName}! "{word}" à¦¶à§à¦¨à§‡ à¦†à¦®à¦¿ à¦¤à§‹ à¦¦à¦¾à¦°à§à¦£ à¦…à¦¬à¦¾à¦• à¦¹à¦²à¦¾à¦®!'
+                    placeholder='e.g. সত্যি নাকি {userName}! "{word}" শুনে আমি তো দারুণ অবাক হলাম!'
                     className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
                   />
                 </div>
@@ -1072,7 +1090,7 @@ export function LocalTrainer({
                     type="text"
                     value={newEmoAction}
                     onChange={(e) => setNewEmoAction(e.target.value)}
-                    placeholder="e.g. à¦šà§‹à¦– à¦¬à§œ à¦¬à§œ à¦•à¦°à§‡ à¦…à¦¬à¦¾à¦• à¦¹à§Ÿà§‡ à¦¤à¦¾à¦•à¦¾à¦²à§‹"
+                    placeholder="e.g. চোখ বড় বড় করে অবাক হয়ে তাকালো"
                     className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
                   />
                 </div>
@@ -1128,7 +1146,7 @@ export function LocalTrainer({
             <p className="text-xs text-slate-500">
               Supports <code className="font-mono text-slate-700">scenarios</code> with{' '}
               <code className="font-mono text-slate-700">phases</code> (opening / developing / resolution), explicit per-dialogue{' '}
-              <code className="font-mono text-slate-700">emotion</code> (e.g. à¦°à¦¾à¦—à¦¾à¦¨à§à¦¬à¦¿à¦¤, à¦šà¦¾à¦ª à¦“ à¦¶à¦°à§à¦¤, à¦¨à¦°à¦® à¦¹à¦“à§Ÿà¦¾, à¦¸à¦®à§à¦®à¦¤ à¦“ à¦–à§à¦¶à¦¿),{' '}
+              <code className="font-mono text-slate-700">emotion</code> (e.g. রাগান্বিত, চাপ ও শর্ত, নরম হওয়া, সম্মত ও খুশি),{' '}
               <code className="font-mono text-slate-700">characters</code>, and{' '}
               <code className="font-mono text-slate-700">conversations</code>.
             </p>
@@ -1137,7 +1155,7 @@ export function LocalTrainer({
               rows={5}
               value={jsonInput}
               onChange={(e) => setJsonInput(e.target.value)}
-              placeholder='{"scenarios": [{"title": "...", "phases": [{"phase": "opening", "emotion": "à¦°à¦¾à¦—à¦¾à¦¨à§à¦¬à¦¿à¦¤", "variants": [...]}]}], "characters": [...], "conversations": [...]}'
+              placeholder='{"scenarios": [{"title": "...", "phases": [{"phase": "opening", "emotion": "রাগান্বিত", "variants": [...]}]}], "characters": [...], "conversations": [...]}'
               className="w-full rounded-lg border border-slate-300 bg-slate-50/40 p-3 font-mono text-xs text-slate-900 focus:border-blue-600 focus:bg-white focus:outline-none"
             />
             <div className="flex flex-wrap items-center gap-2">
@@ -1173,12 +1191,12 @@ export function LocalTrainer({
                         <p className="font-semibold text-slate-900 truncate">{sc.title}</p>
                         <p className="mt-0.5 text-slate-600 line-clamp-2">{sc.summary}</p>
                         <p className="mt-1 text-[11px] text-slate-500">
-                          Relation: {sc.relation} Â· Phases: {sc.phases.length}
+                          Relation: {sc.relation} · Phases: {sc.phases.length}
                           {sc.phases.some((p) => p.emotion)
-                            ? ` Â· Arc: ${sc.phases
+                            ? ` · Arc: ${sc.phases
                                 .map((p) => p.emotion)
                                 .filter(Boolean)
-                                .join(' â†’ ')}`
+                                .join(' → ')}`
                             : ''}
                         </p>
                       </div>
@@ -1265,7 +1283,7 @@ export function LocalTrainer({
                 rows={5}
                 value={storyJsonInput}
                 onChange={(e) => setStoryJsonInput(e.target.value)}
-                placeholder='{"scenarios": [...], "characters": [{"name": "...", "relation": "mother"}], "conversations": [{"prompt": "...", "response": "...", "emotion": "à¦°à¦¾à¦—à¦¾à¦¨à§à¦¬à¦¿à¦¤"}]}'
+                placeholder='{"scenarios": [...], "characters": [{"name": "...", "relation": "mother"}], "conversations": [{"prompt": "...", "response": "...", "emotion": "রাগান্বিত"}]}'
                 className="mt-1.5 w-full rounded-lg border border-slate-300 bg-slate-50/40 p-3 font-mono text-xs text-slate-900 focus:border-blue-600 focus:bg-white focus:outline-none"
               />
             </div>
@@ -1302,7 +1320,7 @@ export function LocalTrainer({
                       <div className="min-w-0">
                         <p className="font-semibold text-slate-900 truncate">
                           {ch.name}{' '}
-                          <span className="font-normal text-slate-500">Â· {ch.role}</span>
+                          <span className="font-normal text-slate-500">· {ch.role}</span>
                         </p>
                         <p className="mt-0.5 text-[11px] text-slate-600 truncate">
                           {ch.personalitySummary}
@@ -1335,7 +1353,7 @@ export function LocalTrainer({
                       <div className="min-w-0">
                         <p className="font-semibold text-slate-900 truncate">
                           Trigger: {item.prompt}{' '}
-                          <span className="font-medium text-blue-700">Â· Emotion: {item.emotion}</span>
+                          <span className="font-medium text-blue-700">· Emotion: {item.emotion}</span>
                         </p>
                         <p className="mt-0.5 text-slate-600 line-clamp-2">
                           Reply: {item.response}
@@ -1425,7 +1443,7 @@ export function LocalTrainer({
                   rows={5}
                   value={wordJsonInput}
                   onChange={(e) => setWordJsonInput(e.target.value)}
-                  placeholder='[{"root": "à¦†à¦¹à§à¦²à¦¾à¦¦", "emotion": "à¦–à§à¦¶à¦¿", "forms": ["à¦†à¦¹à§à¦²à¦¾à¦¦", "ahlad", "joy"], "meaningBn": "à¦†à¦¦à¦°à§‡à¦° à¦®à¦¿à¦·à§à¦Ÿà¦¿ à¦†à¦¬à¦¦à¦¾à¦°"}]'
+                  placeholder='[{"root": "আহ্লাদ", "emotion": "খুশি", "forms": ["আহ্লাদ", "ahlad", "joy"], "meaningBn": "আদরের মিষ্টি আবদার"}]'
                   className="w-full rounded-lg border border-slate-300 bg-slate-50/40 p-3 font-mono text-xs text-slate-900 focus:border-blue-600 focus:bg-white focus:outline-none"
                 />
 
@@ -1459,7 +1477,7 @@ export function LocalTrainer({
                       type="text"
                       value={wordRoot}
                       onChange={(e) => setWordRoot(e.target.value)}
-                      placeholder="e.g. à¦…à¦­à¦¿à¦®à¦¾à¦¨ or à¦†à¦¹à§à¦²à¦¾à¦¦"
+                      placeholder="e.g. অভিমান or আহ্লাদ"
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
                     />
                   </div>
@@ -1495,7 +1513,7 @@ export function LocalTrainer({
                     type="text"
                     value={wordForms}
                     onChange={(e) => setWordForms(e.target.value)}
-                    placeholder="e.g. à¦…à¦­à¦¿à¦®à¦¾à¦¨à§€, obhiman, sulking"
+                    placeholder="e.g. অভিমানী, obhiman, sulking"
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
                   />
                 </div>
@@ -1512,7 +1530,7 @@ export function LocalTrainer({
                     type="text"
                     value={wordMeaning}
                     onChange={(e) => setWordMeaning(e.target.value)}
-                    placeholder="e.g. à¦•à¦¾à¦›à§‡à¦° à¦®à¦¾à¦¨à§à¦·à§‡à¦° à¦ªà§à¦°à¦¤à¦¿ à¦œà¦®à§‡ à¦¥à¦¾à¦•à¦¾ à¦†à¦¦à§à¦°à§‡ à¦°à¦¾à¦— à¦¬à¦¾ à¦•à¦·à§à¦Ÿ"
+                    placeholder="e.g. কাছের মানুষের প্রতি জমে থাকা আদুরে রাগ বা কষ্ট"
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
                   />
                 </div>
@@ -1543,7 +1561,7 @@ export function LocalTrainer({
               <span className="text-[11px] text-slate-500">Auto-synthesized locally</span>
             </div>
             <p className="mt-1 text-xs text-slate-500">
-              Patterns automatically generalized by the TF-IDF &amp; Reinforcement Learner from uploaded scenarios, dialogues, and your ðŸ‘ feedback in chat.
+              Patterns automatically generalized by the TF-IDF &amp; Reinforcement Learner from uploaded scenarios, dialogues, and your 👍 feedback in chat.
             </p>
 
             {selfLearnedPatterns.length > 0 ? (
@@ -1555,7 +1573,7 @@ export function LocalTrainer({
                   >
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-slate-900 truncate">
-                        Cues: {pat.triggerTokens.join(', ')} Â· Emotion: {pat.emotion}
+                        Cues: {pat.triggerTokens.join(', ')} · Emotion: {pat.emotion}
                       </p>
                       <p className="mt-0.5 text-slate-600 line-clamp-2">{pat.response}</p>
                     </div>
@@ -1572,7 +1590,7 @@ export function LocalTrainer({
               </div>
             ) : (
               <div className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-4 text-xs text-slate-500">
-                Train a JSON dataset or rate replies with ðŸ‘ in Roleplay Studio, then click{' '}
+                Train a JSON dataset or rate replies with 👍 in Roleplay Studio, then click{' '}
                 <strong className="text-slate-700">Run Self-Learning Cycle</strong> to synthesize generalized behavioral patterns.
               </div>
             )}
@@ -1586,7 +1604,7 @@ export function LocalTrainer({
                   Trained Bengali &amp; Banglish Lexicon ({allLexicon.length} word groups)
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Ask &ldquo;[word] mane ki?&rdquo; or &ldquo;[à¦¶à¦¬à§à¦¦] à¦®à¦¾à¦¨à§‡ à¦•à§€?&rdquo; in chat to test word meaning recall.
+                  Ask &ldquo;[word] mane ki?&rdquo; or &ldquo;[শব্দ] মানে কী?&rdquo; in chat to test word meaning recall.
                 </p>
               </div>
             </div>
@@ -1621,7 +1639,7 @@ export function LocalTrainer({
                         {entry.root}
                       </h3>
                       <p className="text-[11px] font-medium text-slate-500">
-                        Category: {entry.category} Â· Emotion: {entry.emotion}
+                        Category: {entry.category} · Emotion: {entry.emotion}
                       </p>
                     </div>
                     {entry.isUserTrained && (
@@ -1644,7 +1662,7 @@ export function LocalTrainer({
 
               {filteredLexicon.length === 0 && (
                 <p className="py-8 text-center text-sm text-slate-500">
-                  No matching words found â€” train it using the JSON system on the left!
+                  No matching words found — train it using the JSON system on the left!
                 </p>
               )}
             </div>
