@@ -1,30 +1,16 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# কথামালা — NSFW Banglish Roleplay Studio
 
-# Run and deploy your AI Studio app
+Professional adult (18+) Banglish roleplay website.
 
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/0f39e75e-228f-4cf9-863a-e38b04bc9e3c
+## Features
+- Starts with a free Banglish chatbot (no character required)
+- Describe scenario + character name, relation (ammu/bon/girlfriend/friend/nurse), and age (18+) to start roleplay
+- Dedicated NSFW characters with customizable name & age
+- Full local engine that understands explicit, dark, and fantasy scenarios
+- Voice input/output, local training, persistent memory
 
 ## Run Locally
+npm install
+npm run dev
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
-
-## NSFW / Adult Content
-
-An explicit adult Banglish roleplay dataset has been integrated.
-
-- Source file: `public/assets/nsfw_banglish_roleplay_dataset.jsonl`
-- Converted pairs: `src/data/nsfwBanglishDataset.ts`
-- The engine automatically includes these responses when the character relation is romantic/spouse or when explicit keywords are detected in the user message.
-
-All content is 18+ consensual adult roleplay.
+Live: https://avado-role-ruddy.vercel.app/

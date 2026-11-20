@@ -1125,7 +1125,10 @@ export function generateRoleplayReply(
   const isExplicitContext =
     relation === 'romantic' ||
     relation === 'spouse' ||
-    /(?:fuck|pussy|cock|suck|cum|sex|hard|wet|ride|bend|throat|ass|tits|nude|naked)/i.test(normalized);
+    relation === 'mother' ||
+    relation === 'sibling' ||
+    relation === 'friend' ||
+    /(?:fuck|pussy|cock|suck|cum|sex|hard|wet|ride|bend|throat|ass|tits|nude|naked|chut|lund|chod|choode|gaand|bhosda|maal|horny|wet|moan|deep|fill|creampie|bdsm|spank|bondage|rape|force|dark|fantasy|ammu|bon|nurse|girlfriend)/i.test(normalized);
 
   const combinedTrained = [
     ...(intelligenceContext?.trainedConversations || []),

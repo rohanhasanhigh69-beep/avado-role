@@ -60,7 +60,7 @@ const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
 const INITIAL_DIRECTOR_MESSAGE: SetupChatMessage = {
   id: 'director-welcome',
   sender: 'director',
-  text: 'Welcome to Kothamala! Tell me who you want to roleplay with — your name, the character relation (mother, girlfriend, best friend, wife, sibling), their name, age, and personality. You can write in Banglish, Bengali, or English (or click any preset character on the left).',
+  text: 'Welcome to Kothamala NSFW Banglish Roleplay. Ei ta normal chat. Tumi Banglish e kotha bolte paro. Jodi roleplay shuru korte chao tahole bolo: character er nam, relation (ammu, bon, girlfriend, friend, nurse), age (18+), ar scenario. Example: "Ammu Rahela 38, ajke night e special care korbe". Ba left theke character select koro.',
 };
 
 function readStorage<T>(key: string, fallback: T): T {

@@ -1,6 +1,6 @@
 {
-  "name": "কথামালা — বাংলা রোলপ্লে স্টুডিও",
-  "description": "100% offline, API-free Bengali & Banglish roleplay studio with local emotional intelligence, scenario director, and dual female/male voices.",
+  "name": "কথামালা — NSFW Banglish Roleplay",
+  "description": "Professional adult 18+ Banglish NSFW roleplay studio. Start with free chat, then describe scenario + character name/relation/age to begin. Supports mother, sister, girlfriend, friend, nurse and all dark/NSFW fantasies.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
