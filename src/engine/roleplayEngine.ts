@@ -3,6 +3,7 @@ import { SHARED_BENGALI_TOPICS } from '../data/sharedBengaliKnowledge';
 import { DATASET_NATURAL_PAIRS } from '../data/trainedNaturalDataset';
 import { NSFW_BANGLISH_PAIRS } from '../data/nsfwBanglishDataset';
 import { NSFW_MEGA_PAIRS } from '../data/nsfwMegaDataset';
+import { PROGRESSIVE_SCENARIOS } from '../data/progressiveScenarios';
 import {
   analyzeSentenceSemantics,
   composeEmotionAwareReply,
@@ -1130,9 +1131,10 @@ export function generateRoleplayReply(
     relation === 'sibling' ||
     relation === 'friend' ||
     relation === 'mentor' ||
-    /(?:fuck|pussy|cock|suck|cum|sex|hard|wet|ride|bend|throat|ass|tits|nude|naked|chut|lund|chod|choode|gaand|bhosda|maal|horny|moan|deep|fill|creampie|bdsm|spank|bondage|force|dark|fantasy|ammu|bon|nurse|girlfriend|beta|ma|nighty|door|lock)/i.test(normalized);
+    /(?:fuck|pussy|cock|suck|cum|sex|hard|wet|ride|bend|throat|ass|tits|nude|naked|chut|lund|chod|choode|gaand|bhosda|maal|horny|moan|deep|fill|creampie|bdsm|spank|bondage|force|dark|fantasy|ammu|bon|nurse|girlfriend|beta|ma|nighty|door|lock|blackmail|cheat|cuck|bull|kneel|caught|stroke|clean)/i.test(normalized);
 
   const combinedTrained = [
+    ...(isExplicitContext ? PROGRESSIVE_SCENARIOS : []),
     ...(intelligenceContext?.trainedConversations || []),
     ...DATASET_NATURAL_PAIRS,
     ...(isExplicitContext ? [...NSFW_BANGLISH_PAIRS, ...NSFW_MEGA_PAIRS] : []),
