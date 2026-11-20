@@ -1124,6 +1124,7 @@ export function generateRoleplayReply(
   }
 
   // 5. User-trained + Built-in Natural Dataset + NSFW Banglish Conversation Pairs
+  // Force explicit for mother/sibling/romantic once any adult keyword seen
   const isExplicitContext =
     relation === 'romantic' ||
     relation === 'spouse' ||
@@ -1132,6 +1133,29 @@ export function generateRoleplayReply(
     relation === 'friend' ||
     relation === 'mentor' ||
     /(?:fuck|pussy|cock|suck|cum|sex|hard|wet|ride|bend|throat|ass|tits|nude|naked|chut|lund|chod|choode|gaand|bhosda|maal|horny|moan|deep|fill|creampie|bdsm|spank|bondage|force|dark|fantasy|ammu|bon|nurse|girlfriend|beta|ma|nighty|door|lock|blackmail|cheat|cuck|bull|kneel|caught|stroke|clean)/i.test(normalized);
+
+  // Hard progressive match (Goal 1 & 2)
+  if (isExplicitContext) {
+    for (const item of PROGRESSIVE_SCENARIOS) {
+      if (item.relation !== 'any' && item.relation !== relation) continue;
+      const kws = item.keywords || [];
+      const hit = kws.some(kw => normalized.includes(normalizeBengaliText(kw)));
+      if (hit && !memory.recentResponseKeys.includes('prog:' + item.id)) {
+        return buildResult({
+          replyText: interpolateTemplate(item.response, character, relation, effectiveUserName),
+          replyKey: 'prog:' + item.id,
+          action: item.action || 'progressive',
+          mood: item.emotion,
+          followUps: character.initialFollowUps,
+          matchedTopic: 'progressive',
+          lastTopic: 'progressive',
+          affinityDelta: 8,
+          recentKey: 'prog:' + item.id,
+        });
+      }
+    }
+  }
+
 
   const combinedTrained = [
     ...(isExplicitContext ? PROGRESSIVE_SCENARIOS : []),
