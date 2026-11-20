@@ -107,3 +107,20 @@ export const BUILTIN_CHARACTERS: RoleplayCharacter[] = [
     fallbacks: [],
   },
 ];
+
+export interface TheatreScene {
+  id: string;
+  title: string;
+  subtitle: string;
+  femaleId: string;
+  maleId: string;
+  lines: Array<{
+    speakerId: string;
+    speakerName: string;
+    gender: 'female' | 'male';
+    action: string;
+    text: string;
+  }>;
+}
+
+export const THEATRE_SCENES: TheatreScene[] = [];
