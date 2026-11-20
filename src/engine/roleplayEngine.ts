@@ -2,6 +2,7 @@ import { RELATIONSHIP_KNOWLEDGE } from '../data/relationshipKnowledge';
 import { SHARED_BENGALI_TOPICS } from '../data/sharedBengaliKnowledge';
 import { DATASET_NATURAL_PAIRS } from '../data/trainedNaturalDataset';
 import { NSFW_BANGLISH_PAIRS } from '../data/nsfwBanglishDataset';
+import { NSFW_MEGA_PAIRS } from '../data/nsfwMegaDataset';
 import {
   analyzeSentenceSemantics,
   composeEmotionAwareReply,
@@ -1133,7 +1134,7 @@ export function generateRoleplayReply(
   const combinedTrained = [
     ...(intelligenceContext?.trainedConversations || []),
     ...DATASET_NATURAL_PAIRS,
-    ...(isExplicitContext ? NSFW_BANGLISH_PAIRS : []),
+    ...(isExplicitContext ? [...NSFW_BANGLISH_PAIRS, ...NSFW_MEGA_PAIRS] : []),
   ];
   const trainedHit = matchTrainedConversations(
     normalized,

@@ -8,6 +8,7 @@ interface TopBarProps {
 
 const NAV_ITEMS: Array<{ id: ActiveTab; label: string }> = [
   { id: 'studio', label: 'Roleplay Studio' },
+  { id: 'chats', label: 'Chats' },
   { id: 'characters', label: 'Characters' },
   { id: 'theatre', label: 'Audio Theatre' },
   { id: 'trainer', label: 'AI Training' },

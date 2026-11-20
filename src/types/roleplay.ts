@@ -329,4 +329,4 @@ export interface VoiceSettings {
   speechLang?: 'bn-BD' | 'bn-IN' | 'en-US';
 }
 
-export type ActiveTab = 'studio' | 'characters' | 'theatre' | 'voice' | 'builder' | 'trainer';
+export type ActiveTab = 'studio' | 'characters' | 'theatre' | 'voice' | 'builder' | 'trainer' | 'chats';

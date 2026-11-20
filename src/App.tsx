@@ -32,6 +32,7 @@ import { TheatreStage } from './components/TheatreStage';
 import { LocalTrainer } from './components/LocalTrainer';
 import { VoiceLab } from './components/VoiceLab';
 import { CustomCharacterBuilder } from './components/CustomCharacterBuilder';
+import { ChatsPanel } from './components/ChatsPanel';
 
 const STORAGE_KEYS = {
   CUSTOM_CHARS: 'kothamala_custom_chars_v1',
@@ -110,7 +111,7 @@ function createGreetingMessage(
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('studio');
   const [isSetupMode, setIsSetupMode] = useState<boolean>(() => !hasSavedSession());
-  const [setupMessages, setSetupMessages] = useState<SetupChatMessage[]>([INITIAL_DIRECTOR_MESSAGE]);
+  const [setupMessages, setSetupMessages] = useState<SetupChatMessage[]>([]);
   const [setupDraft, setSetupDraft] = useState<RoleplaySetupDraft | null>(null);
 
   const [customCharacters, setCustomCharacters] = useState<RoleplayCharacter[]>(() =>
@@ -1078,6 +1079,32 @@ export default function App() {
             onStopSpeaking={handleStopSpeaking}
             onUpdateVoiceSettings={handleUpdateVoiceSettings}
             onResetSession={handleResetActiveSession}
+          />
+        )}
+
+        {activeTab === 'chats' && (
+          <ChatsPanel
+            threads={Object.entries(messagesByChar).map(([id, msgs]) => {
+              const char = allCharacters.find(c => c.id === id);
+              const last = msgs[msgs.length - 1];
+              return {
+                id,
+                title: last?.text?.slice(0, 40) || char?.name || 'Chat',
+                characterName: char?.name,
+                lastMessage: last?.text?.slice(0, 60),
+                updatedAt: last?.timestamp || 0,
+              };
+            }).sort((a, b) => b.updatedAt - a.updatedAt)}
+            onSelect={(id) => {
+              setActiveCharacterId(id);
+              setIsSetupMode(false);
+              setActiveTab('studio');
+            }}
+            onNewChat={() => {
+              setIsSetupMode(true);
+              setSetupMessages([]);
+              setActiveTab('studio');
+            }}
           />
         )}
 
