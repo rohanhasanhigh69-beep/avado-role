@@ -5,6 +5,7 @@ import {
   VolumeX,
   Square,
   RotateCcw,
+  Settings,
   Sparkles,
   SlidersHorizontal,
   Download,
@@ -103,6 +104,8 @@ export function RoleplayStudio({
   onResetSession,
 }: RoleplayStudioProps) {
   const [inputText, setInputText] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsText, setSettingsText] = useState('');
   const [setupInputText, setSetupInputText] = useState('');
   const [showMobileControls, setShowMobileControls] = useState(false);
   const [ratedIds, setRatedIds] = useState<Record<string, 1 | -1>>({});
@@ -494,6 +497,16 @@ export function RoleplayStudio({
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>Voice & Story</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowSettings(true)}
+                  aria-label="Open roleplay settings"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 whitespace-nowrap shrink-0"
+                >
+                  <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Settings</span>
                 </button>
 
                 <button
@@ -1145,6 +1158,44 @@ export function RoleplayStudio({
           </>
         )}
       </aside>
-    </div>
+    
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">Roleplay Settings (Banglish)</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Example: Ami Rohan, tumi Rahela. Amar boyosh 18, tomar boyosh 38, tumi amar ammu. Character: snhei but hot. Scenario: shuru te nighty pore door lock, majhe special care, end e creampie.
+            </p>
+            <textarea
+              value={settingsText}
+              onChange={(e) => setSettingsText(e.target.value)}
+              placeholder="Ami Rohan, tumi Rahela. Amar boyosh 18, tomar boyosh 38, tumi amar ammu. Scenario: ..."
+              className="mt-3 h-32 w-full rounded-lg border border-slate-300 p-3 text-sm"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSettings(false)}
+                className="rounded-lg border px-3 py-1.5 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (settingsText.trim()) {
+                    onSendSetupMessage(settingsText.trim());
+                    setShowSettings(false);
+                  }
+                }}
+                className="rounded-lg bg-rose-600 px-3 py-1.5 text-sm text-white"
+              >
+                Save & Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+</div>
   );
 }

@@ -1129,7 +1129,8 @@ export function generateRoleplayReply(
     relation === 'mother' ||
     relation === 'sibling' ||
     relation === 'friend' ||
-    /(?:fuck|pussy|cock|suck|cum|sex|hard|wet|ride|bend|throat|ass|tits|nude|naked|chut|lund|chod|choode|gaand|bhosda|maal|horny|wet|moan|deep|fill|creampie|bdsm|spank|bondage|rape|force|dark|fantasy|ammu|bon|nurse|girlfriend)/i.test(normalized);
+    relation === 'mentor' ||
+    /(?:fuck|pussy|cock|suck|cum|sex|hard|wet|ride|bend|throat|ass|tits|nude|naked|chut|lund|chod|choode|gaand|bhosda|maal|horny|moan|deep|fill|creampie|bdsm|spank|bondage|force|dark|fantasy|ammu|bon|nurse|girlfriend|beta|ma|nighty|door|lock)/i.test(normalized);
 
   const combinedTrained = [
     ...(intelligenceContext?.trainedConversations || []),
