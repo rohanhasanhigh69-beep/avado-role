@@ -1,6 +1,7 @@
 import { RELATIONSHIP_KNOWLEDGE } from '../data/relationshipKnowledge';
 import { SHARED_BENGALI_TOPICS } from '../data/sharedBengaliKnowledge';
 import { DATASET_NATURAL_PAIRS } from '../data/trainedNaturalDataset';
+import { NSFW_BANGLISH_PAIRS } from '../data/nsfwBanglishDataset';
 import {
   analyzeSentenceSemantics,
   composeEmotionAwareReply,
@@ -1120,10 +1121,16 @@ export function generateRoleplayReply(
     }
   }
 
-  // 5. User-trained + Built-in Natural Dataset Conversation Pairs
+  // 5. User-trained + Built-in Natural Dataset + NSFW Banglish Conversation Pairs
+  const isExplicitContext =
+    relation === 'romantic' ||
+    relation === 'spouse' ||
+    /(?:fuck|pussy|cock|suck|cum|sex|hard|wet|ride|bend|throat|ass|tits|nude|naked)/i.test(normalized);
+
   const combinedTrained = [
     ...(intelligenceContext?.trainedConversations || []),
     ...DATASET_NATURAL_PAIRS,
+    ...(isExplicitContext ? NSFW_BANGLISH_PAIRS : []),
   ];
   const trainedHit = matchTrainedConversations(
     normalized,
